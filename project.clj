@@ -15,12 +15,13 @@
   :cljsbuild {:builds [
                        {:id "dev"
                         :source-paths ["src"]
-                        :compiler {:optimizations :none
+                        :compiler {:optimizations :simple
                                    :install-deps true
                                    :main data-cleaner.core
                                    :asset-path "target/js/compiled/dev"
                                    :output-to "target/js/compiled/index.js"
                                    :output-dir "target/js/compiled/dev"
+                                   :source-map "target/js/compiled/index.js.map"
                                    :target :nodejs
                                    :npm-deps {"@google-cloud/storage" "1.5.2"
                                               "@google-cloud/bigquery" "1.0.0"
