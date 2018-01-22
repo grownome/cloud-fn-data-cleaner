@@ -1,0 +1,99 @@
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 0.094 seconds.[0m
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 9.933 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/goog/deps.js
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[36m----  Compiler Warning on   src/data_cleaner/core.cljs   line:4  column:2  ----[0m
+
+  [1mNo such namespace: nodejs, could not locate nodejs.cljs, nodejs.cljc, or JavaScript source providing "nodejs"[0m
+
+  [36m1[0m  [36m(ns data-cleaner.core)[0m
+  [36m2[0m  [36m[0m
+  [36m3[0m  [36m[0m
+  [33m4[0m  [1m(nodejs/enable-util-print!)[0m
+  [0m [0m  [33m ^--- No such namespace: nodejs, could not locate nodejs.cljs, nodejs.cljc, or JavaScript source providing "nodejs"[0m
+  [36m5[0m  [36m[0m
+  [36m6[0m  [36m(defn -main[0m
+  [36m7[0m  [36m  "I don't do a whole lot."[0m
+  [36m8[0m  [36m  [x][0m
+  [36m9[0m  [36m  (println x "Hello, World!"))[0m
+
+[36m----  Compiler Warning : Please see src/data_cleaner/core.cljs  ----[0m
+[36m----  Compiler Warning on   src/data_cleaner/core.cljs   line:4  column:2  ----[0m
+
+  [1mUse of undeclared Var nodejs/enable-util-print![0m
+
+  [36m1[0m  [36m(ns data-cleaner.core)[0m
+  [36m2[0m  [36m[0m
+  [36m3[0m  [36m[0m
+  [33m4[0m  [1m(nodejs/enable-util-print!)[0m
+  [0m [0m  [33m ^--- Use of undeclared Var nodejs/enable-util-print![0m
+  [36m5[0m  [36m[0m
+  [36m6[0m  [36m(defn -main[0m
+  [36m7[0m  [36m  "I don't do a whole lot."[0m
+  [36m8[0m  [36m  [x][0m
+  [36m9[0m  [36m  (println x "Hello, World!"))[0m
+
+[36m----  Compiler Warning : Please see src/data_cleaner/core.cljs  ----[0m
+[32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 0.14 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/goog/deps.js
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 0.197 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/goog/deps.js
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[31mFailed to compile "target/js/compiled/data-cleaner.js" in 9.228 seconds.[0m
+[36m----  Could not Analyze  src/data_cleaner/core.cljs   line:12  column:30  ----[0m
+
+  [1mUnknown dot form of (. (.-data event) -data ("base64")) with classification [:cljs.analyzer/expr :cljs.analyzer/property :cljs.analyzer/expr][0m
+
+  [36m10[0m  [36m* @param {!Function} The callback function."[0m
+  [36m11[0m  [36m[event callback][0m
+  [33m12[0m  [1m(let [data (js/Buffer.from (.-data (.-data event) "base64"))][0m
+  [0m  [0m  [33m                           ^--- Unknown dot form of (. (.-data event) -data ("base64")) with classification [:cljs.analyzer/expr :cljs.analyzer/property :cljs.analyzer/expr][0m
+  [36m13[0m  [36m  (println (str data))[0m
+  [36m14[0m  [36m  (callback)))[0m
+
+[36m----  Analysis Error : Please see src/data_cleaner/core.cljs  ----[0m
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[31mFailed to compile "target/js/compiled/data-cleaner.js" in 0.099 seconds.[0m
+[36m----  Could not Analyze  src/data_cleaner/core.cljs   line:13  column:31  ----[0m
+
+  [1mUnknown dot form of (. message -data ("base64")) with classification [:cljs.analyzer/expr :cljs.analyzer/property :cljs.analyzer/expr][0m
+
+  [36m11[0m  [36m[event callback][0m
+  [36m12[0m  [36m(let [message (.-data event)[0m
+  [33m13[0m  [1m      data (.from js/Buffer (.-data message  "base64"))][0m
+  [0m  [0m  [33m                            ^--- Unknown dot form of (. message -data ("base64")) with classification [:cljs.analyzer/expr :cljs.analyzer/property :cljs.analyzer/expr][0m
+  [36m14[0m  [36m  (println (str data))[0m
+  [36m15[0m  [36m  (callback)))[0m
+
+[36m----  Analysis Error : Please see src/data_cleaner/core.cljs  ----[0m
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[31mFailed to compile "target/js/compiled/data-cleaner.js" in 11.003 seconds.[0m
+[36m----  Could not Analyze  src/data_cleaner/core.cljs   line:11  column:31  ----[0m
+
+  [1mUnknown dot form of (. message -data ("base64")) with classification [:cljs.analyzer/expr :cljs.analyzer/property :cljs.analyzer/expr][0m
+
+  [36m 9[0m  [36m[event callback][0m
+  [36m10[0m  [36m(let [message (.-data event)[0m
+  [33m11[0m  [1m      data (.from js/Buffer (.-data message  "base64"))][0m
+  [0m  [0m  [33m                            ^--- Unknown dot form of (. message -data ("base64")) with classification [:cljs.analyzer/expr :cljs.analyzer/property :cljs.analyzer/expr][0m
+  [36m12[0m  [36m  (println (str data))[0m
+  [36m13[0m  [36m  (callback)))[0m
+
+[36m----  Analysis Error : Please see src/data_cleaner/core.cljs  ----[0m
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 0.144 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/data-cleaner.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 10.904 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
