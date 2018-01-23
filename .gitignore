@@ -4,6 +4,7 @@
 /node_modules
 pom.xml
 pom.xml.asc
+/target
 *.jar
 *.class
 /.lein-*
