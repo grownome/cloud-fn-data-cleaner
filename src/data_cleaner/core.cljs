@@ -1,6 +1,5 @@
 (ns data-cleaner.core
-  )
-
+  [:require [clojure.string]])
 
 (defn subscribe 
   "Triggered from a message on a Cloud Pub/Sub topic.
@@ -9,9 +8,8 @@
   [event callback]
   (let [message (.-data event)
         data (.from js/Buffer (.-data message) "base64")]
-    (println (str data))
-    (callback)))
+    (println (clojure.string/split data #"/")
+    (callback))))
 
 (set! (.-exports js/module) #js {:subscribe subscribe})
 
-(enable-console-print!)

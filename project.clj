@@ -25,6 +25,9 @@
                                    :target :nodejs
                                    :npm-deps {"@google-cloud/storage" "1.5.2"
                                               "@google-cloud/bigquery" "1.0.0"
+                                              "@firebase/firestore" "0.3.1"
+                                              "firebase" "4.9.0"
+                                              "bootstrap" "4.0.0"
                                               }}}]}
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]])
