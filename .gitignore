@@ -1,7 +1,7 @@
 /target
 /classes
 /checkouts
-node_modules/
+/node_modules
 pom.xml
 pom.xml.asc
 /target
