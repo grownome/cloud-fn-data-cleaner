@@ -13,7 +13,6 @@
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
   :source-paths ["src"]
   :cljsbuild {:builds [
-                       
                        {:id "dev"
                         :source-paths ["src"]
                         :figwheel true
@@ -48,4 +47,5 @@
                        ]}
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [cljsjs/firebase "4.9.0-0"]
+                 [com.taoensso/timbre "4.10.0"]
                  [org.clojure/clojurescript "1.9.946"]])
