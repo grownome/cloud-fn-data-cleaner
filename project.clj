@@ -13,21 +13,39 @@
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
   :source-paths ["src"]
   :cljsbuild {:builds [
+                       
                        {:id "dev"
+                        :source-paths ["src"]
+                        :figwheel true
+                        :compiler {:optimizations :none
+                                   :install-deps true
+                                   :main data-cleaner.core
+                                   :asset-path "target/js/compiled/dev"
+                                   :output-to "target/js/compiled/index.dev.js"
+                                   :output-dir "target/js/compiled/dev"
+                                   :target :nodejs
+                                   :npm-deps {"@google-cloud/storage" "1.5.2"
+                                              "@google-cloud/bigquery" "1.0.0"
+                                              :firebase-admin "5.8.1"
+                                              "bootstrap" "4.0.0"
+                                              }}}
+
+                       {:id "prod"
                         :source-paths ["src"]
                         :compiler {:optimizations :simple
                                    :install-deps true
                                    :main data-cleaner.core
-                                   :asset-path "target/js/compiled/dev"
+                                   :asset-path "target/js/compiled/prod"
                                    :output-to "target/js/compiled/index.js"
-                                   :output-dir "target/js/compiled/dev"
+                                   :output-dir "target/js/compiled/prod"
                                    :source-map "target/js/compiled/index.js.map"
                                    :target :nodejs
                                    :npm-deps {"@google-cloud/storage" "1.5.2"
                                               "@google-cloud/bigquery" "1.0.0"
-                                              "@firebase/firestore" "0.3.1"
-                                              "firebase" "4.9.0"
+                                              :firebase-admin "5.8.1"
                                               "bootstrap" "4.0.0"
-                                              }}}]}
+                                              }}}
+                       ]}
   :dependencies [[org.clojure/clojure "1.9.0"]
+                 [cljsjs/firebase "4.9.0-0"]
                  [org.clojure/clojurescript "1.9.946"]])

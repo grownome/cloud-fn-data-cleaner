@@ -243,3 +243,24 @@ notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.j
 [32mSuccessfully compiled "target/js/compiled/data-cleaner.js" in 17.113 seconds.[0m
 notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
 notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/index.dev.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/index.dev.js" in 17.162 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/goog/deps.js
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/index.dev.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/index.dev.js" in 0.282 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/index.dev.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/index.dev.js" in 16.572 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/index.dev.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/index.dev.js" in 0.23 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
+[0mCompiling "target/js/compiled/index.dev.js" from ["src"]...[0m
+[32mSuccessfully compiled "target/js/compiled/index.dev.js" in 10.919 seconds.[0m
+notifying browser that file changed:  target/js/compiled/dev/cljs_deps.js
+notifying browser that file changed:  target/js/compiled/dev/data_cleaner/core.js
