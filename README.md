@@ -27,7 +27,7 @@ lein cljsbuild once
 
 To deploy
 ```
-gcloud beta functions deploy greet --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic huginn-tele
+gcloud beta functions deploy data-cleaner (CORRECT?) --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic huginn-tele
 ```
 
 ## License
