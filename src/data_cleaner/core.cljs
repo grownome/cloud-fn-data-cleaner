@@ -34,12 +34,12 @@
       (do
         (let [fs  (fa/firestore)
               data (aget pubsub-message "data")
-              readings-ref (-> fs (.collection "images"))]
+              images-ref (-> fs (.collection "images"))]
           (aset attributes "image_part" data)
           (aset attributes "image_id" (second subparts))
           (aset attributes "image_index" (get subparts 2))
           (aset attributes "timestamp" (.-timestamp  event))
-          (.add  readings-ref attributes))
+          (.add  images-ref attributes))
         )
       (do
         (let [fs  (fa/firestore)
