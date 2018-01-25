@@ -26,12 +26,21 @@
   :data bm9tZXMvYmx1ZS1jaGVycnktcGF5bG9hZC1jb3JlLXRlbXAtbWF4LzQzLjg1}
   * @param {!Function} The callback function."
   [event callback]
-  (let [
-        pubsub-message  (.-data event)
+  (let [pubsub-message  (.-data event)
         attributes (aget  pubsub-message "attributes")
         subfolder (aget attributes "subFolder")
-        ]
-    (if (not (= subfolder "captures"))
+        subparts (s/split subfolder #"/")]
+    (if (= (first subparts) "captures")
+      (do
+        (let [fs  (fa/firestore)
+              data (aget pubsub-message "data")
+              readings-ref (-> fs (.collection "images"))]
+          (aset attributes "image_part" data)
+          (aset attributes "image_id" (second subparts))
+          (aset attributes "image_index" (get subparts 2))
+          (aset attributes "timestamp" (.-timestamp  event))
+          (.add  readings-ref attributes))
+        )
       (do
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
