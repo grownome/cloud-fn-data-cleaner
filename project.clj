@@ -25,6 +25,7 @@
                                    :target :nodejs
                                    :npm-deps {"@google-cloud/storage" "1.5.2"
                                               "@google-cloud/bigquery" "1.0.0"
+                                              :initial-state "0.2.0"
                                               :firebase-admin "5.8.1"
                                               "bootstrap" "4.0.0"
                                               }}}
@@ -41,6 +42,7 @@
                                    :target :nodejs
                                    :npm-deps {"@google-cloud/storage" "1.5.2"
                                               "@google-cloud/bigquery" "1.0.0"
+                                              :initial-state "0.2.0"
                                               :firebase-admin "5.8.1"
                                               "bootstrap" "4.0.0"
                                               }}}

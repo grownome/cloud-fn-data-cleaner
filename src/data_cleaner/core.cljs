@@ -1,5 +1,6 @@
 (ns data-cleaner.core
   (:require [clojure.string :as s]
+            [initial-state :as is]
             [firebase-admin :as fa]
             [taoensso.timbre :as timbre
              :refer-macros [trace  debug  info  warn  error  fatal  report
@@ -12,6 +13,11 @@
 (defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa) )
                                      :databaseURL "https://grownome.firebaseio.com"}))
 
+(defonce bucket (is/bucket  "Q7S374HJ4MGR" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"))
+
+
+(defn push-inital-state [reading value timestamp]
+  (.push bucket reading value timestamp))
 
 (defn subscribe
   "Triggered from a message on a Cloud Pub/Sub topic.
@@ -46,6 +52,9 @@
               data (.from js/Buffer (aget pubsub-message "data") "base64")
               [reg name value] (s/split data #"/")
               readings-ref (-> fs (.collection "readings"))]
+
+          (push-inital-state name (js/parseFloat value) (.-timestamp event))
+
           (aset attributes "reading" value)
           (aset attributes "timestamp" (.-timestamp  event))
           (.add  readings-ref attributes))))
