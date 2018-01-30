@@ -36,14 +36,17 @@
         attributes (aget  pubsub-message "attributes")
         subfolder (aget attributes "subFolder")
         subparts (s/split subfolder #"/")]
+    (info subparts)
     (if (= (first subparts) "captures")
       (do
         (let [fs  (fa/firestore)
+              [kind rand-id max-idx idx] subparts
               data (aget pubsub-message "data")
               images-ref (-> fs (.collection "images"))]
           (aset attributes "image_part" data)
-          (aset attributes "image_id" (second subparts))
-          (aset attributes "image_index" (get subparts 2))
+          (aset attributes "image_id" rand-id)
+          (aset attributes "image_max_index" max-idx)
+          (aset attributes "image_index" idx)
           (aset attributes "timestamp" (.-timestamp  event))
           (.add  images-ref attributes))
         )
