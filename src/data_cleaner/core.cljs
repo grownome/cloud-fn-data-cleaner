@@ -12,11 +12,13 @@
 
 (defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa) )
                                      :databaseURL "https://grownome.firebaseio.com"}))
+(defonce users
+  {"0" ["Q7S374HJ4MGR" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"]
+   "1" ["4TF3E3GQHP8E" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"]})
 
-(defonce bucket (is/bucket  "Q7S374HJ4MGR" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"))
 
 
-(defn push-inital-state [reading value timestamp]
+(defn push-inital-state [bucket reading value timestamp]
   (.push bucket reading value timestamp))
 
 (defn subscribe
@@ -48,15 +50,16 @@
           (aset attributes "image_max_index" max-idx)
           (aset attributes "image_index" idx)
           (aset attributes "timestamp" (.-timestamp  event))
-          (.add  images-ref attributes))
-        )
+          (.add  images-ref attributes)))
       (do
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
-              [reg name value] (s/split data #"/")
-              readings-ref (-> fs (.collection "readings"))]
+              [reg user name value] (s/split data #"/")
+              readings-ref (-> fs (.collection "readings"))
+              [bucket-key access-key] (get users (or user "0"))
+              b (is/bucket bucket-key access-key)]
 
-          (push-inital-state name (js/parseFloat value) (.-timestamp event))
+          (push-inital-state b name (js/parseFloat value) (.-timestamp event))
 
           (aset attributes "reading" value)
           (aset attributes "timestamp" (.-timestamp  event))
