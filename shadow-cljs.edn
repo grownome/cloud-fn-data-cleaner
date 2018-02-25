@@ -1,0 +1,39 @@
+;; shadow-cljs configuration
+{:source-paths
+ ["src"]
+
+ :dependencies
+ [[org.clojure/clojure "1.9.0"]
+  [funcool/promesa "1.9.0"]
+  [com.taoensso/timbre "4.10.0"]
+  [org.clojure/clojurescript "1.9.946"]]
+
+ :builds
+ {
+  :dev {
+        :optimizations :none
+        :install-deps true
+        :main data-cleaner.core
+        :asset-path "target/js/compiled/dev"
+        :output-to "target/js/compiled/index.dev.js"
+        :output-dir "target/js/compiled/dev"
+        :exports {:subscribe data-cleaner.core/subscribe}
+        :target :node-library
+        :npm-deps {"@google-cloud/storage" "1.5.2"
+                   "@google-cloud/bigquery" "1.0.0"
+                   :initial-state "0.2.0"
+                   :firebase-admin "5.8.1"}}
+  :prod
+  {:optimizations :simple
+   :install-deps true
+   :main data-cleaner.core
+   :asset-path "target/js/compiled/prod"
+   :output-to "target/js/compiled/index.js"
+   :output-dir "target/js/compiled/prod"
+   :source-map "target/js/compiled/index.js.map"
+   :exports {:subscribe data-cleaner.core/subscribe}
+   :target :node-library
+   :npm-deps {"@google-cloud/storage" "1.5.2"
+              "@google-cloud/bigquery" "1.0.0"
+              :initial-state "0.2.0"
+              :firebase-admin "5.8.1"}}}}

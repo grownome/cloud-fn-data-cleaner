@@ -3,51 +3,9 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :plugins [[lein-cljsbuild "1.1.7"]
-            [lein-figwheel "0.5.13"]
-            [lein-doo "0.1.8"]]
   ;; :jvm-opts ["--add-modules" "java.xml.bind"]
-  :profiles {:dev {:dependencies [[figwheel-sidecar "0.5.13"]
-                                  [com.cemerick/piggieback "0.2.2"]]
-                   :source-paths ["src" "dev"]
-                   :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
-  :source-paths ["src"]
-  :cljsbuild {:builds [
-                       {:id "dev"
-                        :source-paths ["src"]
-                        :figwheel true
-                        :compiler {:optimizations :none
-                                   :install-deps true
-                                   :main data-cleaner.core
-                                   :asset-path "target/js/compiled/dev"
-                                   :output-to "target/js/compiled/index.dev.js"
-                                   :output-dir "target/js/compiled/dev"
-                                   :target :nodejs
-                                   :npm-deps {"@google-cloud/storage" "1.5.2"
-                                              "@google-cloud/bigquery" "1.0.0"
-                                              :initial-state "0.2.0"
-                                              :firebase-admin "5.8.1"
-                                              "bootstrap" "4.0.0"
-                                              }}}
-
-                       {:id "prod"
-                        :source-paths ["src"]
-                        :compiler {:optimizations :simple
-                                   :install-deps true
-                                   :main data-cleaner.core
-                                   :asset-path "target/js/compiled/prod"
-                                   :output-to "target/js/compiled/index.js"
-                                   :output-dir "target/js/compiled/prod"
-                                   :source-map "target/js/compiled/index.js.map"
-                                   :target :nodejs
-                                   :npm-deps {"@google-cloud/storage" "1.5.2"
-                                              "@google-cloud/bigquery" "1.0.0"
-                                              :initial-state "0.2.0"
-                                              :firebase-admin "5.8.1"
-                                              "bootstrap" "4.0.0"
-                                              }}}
-                       ]}
+ :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [cljsjs/firebase "4.9.0-0"]
+                 [funcool/promesa "1.9.0"]
                  [com.taoensso/timbre "4.10.0"]
                  [org.clojure/clojurescript "1.9.946"]])

@@ -2,6 +2,7 @@
   (:require [clojure.string :as s]
             [initial-state :as is]
             [firebase-admin :as fa]
+            [promesa.core :as p]
             [taoensso.timbre :as timbre
              :refer-macros [trace  debug  info  warn  error  fatal  report
                             tracef debugf infof warnf errorf fatalf reportf
@@ -66,6 +67,18 @@
           (.add  readings-ref attributes))))
     (callback)))
 
-(set! (.-exports js/module) #js {:subscribe subscribe})
+(defn images-by-id [fs]
+  "gets a cursor that returns all of the unprocessed images firestore"
+  (-> fs
+      (.collection "images") ; It's silly that we called the colletions with raw images images
+      (.orderby "image_id"))) ; order it by the image id so they are always groupd together
 
-
+(defn assemble-images
+  [event callback]
+  (let [fs (fa/firestore)
+        images-ref (images-by-id fs)
+        images-snap-p (.get images-ref)]
+    (p/then images-snap-p
+            (fn [snap]
+              (.forEach snap
+                        (fn [image-data]))))))
