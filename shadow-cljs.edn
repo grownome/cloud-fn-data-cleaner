@@ -17,7 +17,8 @@
         :asset-path "target/js/compiled/dev"
         :output-to "target/js/compiled/index.dev.js"
         :output-dir "target/js/compiled/dev"
-        :exports {:subscribe data-cleaner.core/subscribe}
+        :exports {:subscribe data-cleaner.core/subscribe
+                  :make_image data-cleaner.core/assemble-images}
         :target :node-library
         :npm-deps {"@google-cloud/storage" "1.5.2"
                    "@google-cloud/bigquery" "1.0.0"
@@ -31,7 +32,8 @@
    :output-to "target/js/compiled/index.js"
    :output-dir "target/js/compiled/prod"
    :source-map "target/js/compiled/index.js.map"
-   :exports {:subscribe data-cleaner.core/subscribe}
+   :exports {:subscribe data-cleaner.core/subscribe
+             :make_image data-cleaner.core/assemble-images}
    :target :node-library
    :npm-deps {"@google-cloud/storage" "1.5.2"
               "@google-cloud/bigquery" "1.0.0"
