@@ -71,14 +71,16 @@
   "gets a cursor that returns all of the unprocessed images firestore"
   (-> fs
       (.collection "images") ; It's silly that we called the colletions with raw images images
-      (.orderby "image_id"))) ; order it by the image id so they are always groupd together
+      (.orderBy "image_id"))) ; order it by the image id so they are always groupd together
 
 (defn assemble-images
   [event callback]
   (let [fs (fa/firestore)
         images-ref (images-by-id fs)
         images-snap-p (.get images-ref)]
-    (p/then images-snap-p
-            (fn [snap]
-              (.forEach snap
-                        (fn [image-data]))))))
+    (p/chain
+     images-snap-p
+     (fn [snap]
+       (.forEach snap
+                 (fn [image-data]
+                   ))))))
