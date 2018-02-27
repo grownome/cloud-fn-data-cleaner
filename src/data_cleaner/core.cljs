@@ -31,7 +31,12 @@
    (->  bq-client
         (.dataset dataset)
         (.table table)
-        (.insert data)))
+        (.insert data)
+        (.then #(info "inserted data"))
+        (.catch (fn [err ]
+                  (error "insert error " err)
+                  (spy (js->clj (aget err "errors")))
+                  (debug (js-keys err))))))
   ([data]
    (bq-insert "grownome" "metrics" data)))
 
@@ -75,7 +80,9 @@
           (aset attributes "image_max_index" max-idx)
           (aset attributes "image_index" idx)
           (aset attributes "timestamp" (.-timestamp  event))
-          (.add  images-ref attributes)))
+          (.add  images-ref attributes)
+          (callback)
+          ))
       (do
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
@@ -86,10 +93,11 @@
               b (is/bucket bucket-key access-key)]
           (push-inital-state b name clean-value (.-timestamp event))
           (aset attributes "reading" clean-value)
+          (aset attributes "user" user)
           (aset attributes "timestamp" (.-timestamp  event))
           (.add  readings-ref attributes)
-          (bq-insert attributes))))
-    (callback)))
+          (p/then (bq-insert attributes)
+                  #(callback)))))))
 
 (defn images-by-id
   ([fs start-at]
@@ -102,50 +110,62 @@
        (.orderBy "image_id")
        (.limit 5)))) ; order it by the image id so they are always groupd together
 
-(defn images-chan
-  [fs cursor]
-  (let [img-chan (a/chan (comp
-                          (partition-by #(aget % "image_id"))
-                          (map #(.data %))
-                          distinct))]
-    (a/go-loop [c cursor]
-      (p/chain cursor
-               (fn [a-few-images]
-                 (if a-few-images
-                   (let [l (.data (last a-few-images))]
-                     (a/onto-chan img-chan a-few-images false)
-                     (recur (.get (images-by-id fs (aget l "image_id")))))))))
-    img-chan))
-
 (defn reassemble-image
   "checks to see if all the parts are there and then assembles one image
   or not"
   [parts]
+  (info "reassembling image")
   (let [a-part (first parts)
-        expected-parts (aget a-part "image_max_index")]
-    (if (= expected-parts (count parts ))
+        expected-parts (aget a-part "image_max_index")
+        device-id (aget a-part "deviceNumId")
+        image-id (aget a-part "image_id")]
+    (if (= expected-parts (spy (count parts)))
       (let [sorted (sort-by #(aget % "image_index") parts)
             unencoded (map #(.from js/Buffer (aget % "data") "base64"))
-            joined (apply concat unencoded)
-            ]
-        joined))))
+            joined (apply concat unencoded)]
+        {:image joined :device-id device-id :image-id image-id}))))
 
 (defn upload-image
-  [image device-id id]
+  [{:keys [device-id image-id image]}]
   (let [stor (fa/storage)
-        ref  (.child (.ref stor) (str "processed_images/" device-id "/" id))
+        ref  (.child (.ref stor) (str "processed_images/" device-id "/" image-id))
         metadata #js {"contentType" "image/jpeg"}]
     (.put ref image)))
 
+(defn images-chan
+  [fs cursor]
+  (let [img-chan (a/chan (comp
+                          (distinct)
+                          (partition-by #(spy (aget % "image_id")))
+                          (map reassemble-image)
+                          (map upload-image)
+                          ))
+        next-chan (a/chan)]
+    (a/go-loop [c cursor]
+      (p/chain (.get cursor)
+               (fn [a-few-images]
+                 (let [clj-imgs (js->clj (.-docs a-few-images))]
+                   (a/go
+                     (info "trying to reconstruct")
+                     (if (> (spy (count clj-imgs)) 0)
+                       (let [l (.data (last clj-imgs))]
+                         (info "trying to put image on chan")
+                         (info (js-keys l))
+                         (doall (map #(a/>! img-chan (spy (.data %))) clj-imgs))
+                         (a/>! next-chan (spy l)))
+                       (do
+                         (a/close! img-chan)
+                         (a/close! next-chan)))))))
+      (when-let [next (a/<! next-chan)]
+        (info "getting next page")
+        (recur  (images-by-id fs (spy (aget next "image_id"))))))
+    img-chan))
 
 (defn assemble-images
   [event callback]
   (let [fs (fa/firestore)
-        images-ref (images-by-id fs)
-        images-snap-p (.get images-ref)]
-    (p/chain
-     images-snap-p
-     (fn [snap]
-       (.forEach snap
-                 (fn [image-data]
-                   ))))))
+        images-ref (images-by-id fs)]
+    (a/go-loop []
+      (if (a/<! (images-chan fs images-ref))
+        (recur)
+        (callback)))))

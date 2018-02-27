@@ -20,7 +20,8 @@
         :install-deps true
         :main data-cleaner.core
         :asset-path "target/js/compiled/dev"
-        :output-to "target/js/compiled/index.dev.js"
+        :output-to "target/js/compiled/index.js"
+        :source-map "release/index.js.map"
         :output-dir "target/js/compiled/dev"
         :exports {:subscribe data-cleaner.core/subscribe
                   :make_image data-cleaner.core/assemble-images}
@@ -30,13 +31,13 @@
                    :initial-state "0.2.0"
                    :firebase-admin "5.9.0"}}
   :prod
-  {:optimizations :simple
+  {:optimizations :none
    :install-deps true
    :main data-cleaner.core
    :asset-path "target/js/compiled/prod"
-   :output-to "target/js/compiled/index.js"
-   :output-dir "target/js/compiled/prod"
-   :source-map "target/js/compiled/index.js.map"
+   :output-to "release/index.js"
+   :output-dir "release/prod"
+   :source-map "release/index.js.map"
    :exports {:subscribe data-cleaner.core/subscribe
              :make_image data-cleaner.core/assemble-images}
    :target :node-library
