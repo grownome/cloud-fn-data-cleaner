@@ -27,7 +27,8 @@ lein cljsbuild once
 
 To deploy
 ```
-gcloud beta functions deploy greet --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic huginn-tele
+gcloud beta functions deploy subscribe --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic huginn-tele
+gcloud beta functions deploy make_image --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic daily
 ```
 
 ## License

@@ -6,7 +6,12 @@
  [[org.clojure/clojure "1.9.0"]
   [funcool/promesa "1.9.0"]
   [com.taoensso/timbre "4.10.0"]
+  [org.clojure/core.async "0.4.474"]
+  [cider/cider-nrepl "0.17.0-SNAPSHOT"]
   [org.clojure/clojurescript "1.9.946"]]
+
+  :nrepl {:port 9000
+         :middleware []}
 
  :builds
  {
@@ -20,10 +25,10 @@
         :exports {:subscribe data-cleaner.core/subscribe
                   :make_image data-cleaner.core/assemble-images}
         :target :node-library
-        :npm-deps {"@google-cloud/storage" "1.5.2"
+        :npm-deps {"@google-cloud/storage" "1.6.0"
                    "@google-cloud/bigquery" "1.0.0"
                    :initial-state "0.2.0"
-                   :firebase-admin "5.8.1"}}
+                   :firebase-admin "5.9.0"}}
   :prod
   {:optimizations :simple
    :install-deps true
@@ -35,7 +40,7 @@
    :exports {:subscribe data-cleaner.core/subscribe
              :make_image data-cleaner.core/assemble-images}
    :target :node-library
-   :npm-deps {"@google-cloud/storage" "1.5.2"
+   :npm-deps {"@google-cloud/storage" "1.6.0"
               "@google-cloud/bigquery" "1.0.0"
               :initial-state "0.2.0"
-              :firebase-admin "5.8.1"}}}}
+              :firebase-admin "5.9.0"}}}}
