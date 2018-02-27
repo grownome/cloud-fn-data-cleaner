@@ -1,1 +1,0 @@
-{"version":3,"file":"org.bluebird.js","sources":["org/bluebird.cljs"],"mappings":";;;AAGA,kBAAA,lBAACA,4BAA+BC","names":["js/goog.exportSymbol","js/shadow.js.shim.module$bluebird"],"sourcesContent":["(ns org.bluebird\n  (:require [\"bluebird\" :as bb]))\n\n(js/goog.exportSymbol \"Promise\" bb)\n"]}
