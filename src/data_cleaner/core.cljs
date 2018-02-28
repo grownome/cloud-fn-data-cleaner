@@ -51,6 +51,45 @@
     (cleanup-temp value)
     value))
 
+(defn process-capture
+  [event callback]
+  (let [pubsub-message  (.-data event)
+        attributes (aget pubsub-message "attributes")
+        subfolder (aget attributes "subFolder")
+        subparts (s/split subfolder #"/")]
+    (assert (= (first subparts) "captures"))
+    (let [fs  (fa/firestore)
+          [kind rand-id max-idx idx] subparts
+          data (aget pubsub-message "data")
+          images-ref (-> fs (.collection "images"))]
+      (aset attributes "image_part" data)
+      (aset attributes "image_id" rand-id)
+      (aset attributes "image_max_index" max-idx)
+      (aset attributes "image_index" idx)
+      (aset attributes "timestamp" (.-timestamp  event))
+      (.add  images-ref attributes)
+      (callback))))
+
+(defn process-reading
+  [event callback]
+  (let [pubsub-message  (.-data event)
+        attributes (aget pubsub-message "attributes")
+        subfolder (aget attributes "subFolder")]
+    (let [fs  (fa/firestore)
+          data (.from js/Buffer (aget pubsub-message "data") "base64")
+          [reg user name value] (s/split data #"/")
+          readings-ref (-> fs (.collection "readings"))
+          [bucket-key access-key] (get users (or user "0"))
+          clean-value (clean-value name (js/parseFloat value))
+          b (is/bucket bucket-key access-key)]
+      (push-inital-state b name clean-value (.-timestamp event))
+      (aset attributes "reading" clean-value)
+      (aset attributes "user" user)
+      (aset attributes "timestamp" (.-timestamp  event))
+      (.add  readings-ref attributes)
+      (p/then (bq-insert attributes)
+              #(callback)))))
+
 (defn subscribe
   "Triggered from a message on a Cloud Pub/Sub topic.
   * @param {!Object} event The Cloud Functions event.
@@ -81,8 +120,7 @@
           (aset attributes "image_index" idx)
           (aset attributes "timestamp" (.-timestamp  event))
           (.add  images-ref attributes)
-          (callback)
-          ))
+          (callback)))
       (do
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
@@ -116,33 +154,39 @@
   [parts]
   (info "reassembling image")
   (let [a-part (first parts)
-        expected-parts (aget a-part "image_max_index")
+        expected-parts (inc (aget a-part "image_max_index"))
         device-id (aget a-part "deviceNumId")
+        part-refs (into [] (map #(aget % "ref") parts))
         image-id (aget a-part "image_id")]
     (if (= expected-parts (spy (count parts)))
       (let [sorted (sort-by #(aget % "image_index") parts)
-            unencoded (map #(.from js/Buffer (aget % "data") "base64"))
-            joined (apply concat unencoded)]
-        {:image joined :device-id device-id :image-id image-id}))))
+            unencoded (clj->js (into [] (map #(.from js/Buffer (aget % "data") "base64"))))
+            joined (.concat js/Buffer unencoded)]
+        {:image joined :device-id device-id :image-id image-id :refs part-refs}))))
 
 (defn upload-image
-  [{:keys [device-id image-id image]}]
-  (let [stor (fa/storage)
-        ref  (.child (.ref stor) (str "processed_images/" device-id "/" image-id))
+  [{:keys [device-id image-id image] :as image-data}]
+  (let [stor (.storage fa)
+        bucket (.bucket  stor (str "processed_images/" device-id "/" ))
+        file (.file bucket (str image-id ".jpg"))
         metadata #js {"contentType" "image/jpeg"}]
-    (.put ref image)))
+    (p/chain
+     (.create bucket)
+     (.save file image))
+    (dissoc image-data :image)))
+
+(defn delete-raw
+  [fs {:keys [device-id image-id refs] :as image-info}]
+  (let [b (.batch fs)]
+    (doall (map #(.delete b %) refs))
+    (.commit b)))
 
 (defn images-chan
   [fs cursor]
-  (let [img-chan (a/chan (comp
-                          (distinct)
-                          (partition-by #(spy (aget % "image_id")))
-                          (map reassemble-image)
-                          (map upload-image)
-                          ))
+  (let [img-chan (a/chan 10 (comp (dedupe) (partition-by #(spy (aget (spy %) "image_id")))))
         next-chan (a/chan)]
     (a/go-loop [c cursor]
-      (p/chain (.get cursor)
+      (p/then (.get c)
                (fn [a-few-images]
                  (let [clj-imgs (js->clj (.-docs a-few-images))]
                    (a/go
@@ -150,22 +194,29 @@
                      (if (> (spy (count clj-imgs)) 0)
                        (let [l (.data (last clj-imgs))]
                          (info "trying to put image on chan")
-                         (info (js-keys l))
-                         (doall (map #(a/>! img-chan (spy (.data %))) clj-imgs))
-                         (a/>! next-chan (spy l)))
+                         (doall (map #(a/put! img-chan (spy (.data %))) clj-imgs))
+                         (a/>! next-chan (spy (js->clj l))))
                        (do
                          (a/close! img-chan)
                          (a/close! next-chan)))))))
       (when-let [next (a/<! next-chan)]
         (info "getting next page")
-        (recur  (images-by-id fs (spy (aget next "image_id"))))))
+        (recur  (images-by-id fs (spy (get next "image_id"))))))
     img-chan))
 
 (defn assemble-images
   [event callback]
   (let [fs (fa/firestore)
-        images-ref (images-by-id fs)]
-    (a/go-loop []
-      (if (a/<! (images-chan fs images-ref))
-        (recur)
+        images-ref (images-by-id fs)
+        i-chan (images-chan fs images-ref)]
+    (info "image sticher started")
+    (a/go-loop [item (a/<! i-chan)]
+      (info "got an image")
+      (if (spy item)
+        (do
+          (-> item
+              (reassemble-image)
+              (upload-image)
+              (delete-raw fs))
+          (recur (a/<! i-chan)))
         (callback)))))
