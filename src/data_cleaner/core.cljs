@@ -194,6 +194,7 @@
                      (if (> (spy (count clj-imgs)) 0)
                        (let [l (.data (last clj-imgs))]
                          (info "trying to put image on chan")
+                         ;Add ref to this so that images can be cleaned up.
                          (doall (map #(a/put! img-chan (spy (.data %))) clj-imgs))
                          (a/>! next-chan (spy (js->clj l))))
                        (do
