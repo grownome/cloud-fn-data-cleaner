@@ -14,7 +14,7 @@
 (defn store-capture
   [attrs data])
 
-(defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa) )
+(defonce app (.initializeApp fa #js {:credentiErical (.applicationDefault (.-credential fa) )
                                      :databaseURL "https://grownome.firebaseio.com"}))
 
 (defonce bq-client  (new bq #js {
@@ -114,7 +114,7 @@
               [kind rand-id max-idx idx] subparts
               data (aget pubsub-message "data")
               images-ref (-> fs (.collection "images"))]
-          (aset attributes "image_part" data)
+          (aset attributes "image_part" (.from js/Buffer data "base64"))
           (aset attributes "image_id" rand-id)
           (aset attributes "image_max_index" max-idx)
           (aset attributes "image_index" idx)
@@ -139,41 +139,49 @@
 
 (defn images-by-id
   ([fs start-at]
-   (-> (images-by-id fs)
-       (.startAt start-at)))
+   (-> fs
+       (.collection "images") ; It's silly that we called the colletions with raw images images
+       (.orderBy "image_id")
+       (.startAt start-at)
+       (.limit 200)))
   ([fs]
    "gets a cursor that returns all of the unprocessed images firestore"
    (-> fs
        (.collection "images") ; It's silly that we called the colletions with raw images images
        (.orderBy "image_id")
-       (.limit 5)))) ; order it by the image id so they are always groupd together
+       (.limit 200)))) ; order it by the image id so they are always groupd together
 
 (defn reassemble-image
   "checks to see if all the parts are there and then assembles one image
   or not"
   [parts]
   (info "reassembling image")
-  (let [a-part (first parts)
-        expected-parts (inc (aget a-part "image_max_index"))
-        device-id (aget a-part "deviceNumId")
-        part-refs (into [] (map #(aget % "ref") parts))
-        image-id (aget a-part "image_id")]
-    (if (= expected-parts (spy (count parts)))
-      (let [sorted (sort-by #(aget % "image_index") parts)
-            unencoded (clj->js (into [] (map #(.from js/Buffer (aget % "data") "base64"))))
+  (let [a-part (spy (js->clj (.data (first parts))))
+        expected-parts (inc (js/parseInt (get a-part "image_max_index")))
+        device-id (get a-part "deviceNumId")
+        part-refs (into [] (map #(.-ref %) parts))
+        image-id (get a-part "image_id")
+        part-data (map #(js->clj (.data %)) parts)]
+    (when (= (spy expected-parts) (spy (count parts)))
+      (let [
+            sorted (sort-by #(js/parseInt
+                              (last (s/split (get % "subFolder") "/"))) part-data)
+            unencoded (clj->js (into []
+                                     (map
+                                      #(.from js/Buffer (get % "image_part") "base64"))
+                                     sorted))
             joined (.concat js/Buffer unencoded)]
-        {:image joined :device-id device-id :image-id image-id :refs part-refs}))))
+        (spy {:image joined :device-id device-id :image-id image-id :refs part-refs})))))
 
 (defn upload-image
   [{:keys [device-id image-id image] :as image-data}]
-  (let [stor (.storage fa)
-        bucket (.bucket  stor (str "processed_images/" device-id "/" ))
-        file (.file bucket (str image-id ".jpg"))
-        metadata #js {"contentType" "image/jpeg"}]
-    (p/chain
-     (.create bucket)
-     (.save file image))
-    (dissoc image-data :image)))
+  (when image-data
+      (let [stor (.storage fa)
+            bucket (.bucket stor "grownome.appspot.com")
+            file (.file bucket (str "/" device-id "/" image-id ".jpg"))
+            metadata #js {"contentType" "image/jpeg"}]
+        (.save file image)
+        (dissoc image-data :image))))
 
 (defn delete-raw
   [fs {:keys [device-id image-id refs] :as image-info}]
@@ -183,7 +191,8 @@
 
 (defn images-chan
   [fs cursor]
-  (let [img-chan (a/chan 10 (comp (dedupe) (partition-by #(spy (aget (spy %) "image_id")))))
+  (let [img-chan (a/chan 1 (comp (distinct)
+                                 (partition-by #(spy (aget (spy (.data %)) "image_id")))))
         next-chan (a/chan)]
     (a/go-loop [c cursor]
       (p/then (.get c)
@@ -195,7 +204,7 @@
                        (let [l (.data (last clj-imgs))]
                          (info "trying to put image on chan")
                          ;Add ref to this so that images can be cleaned up.
-                         (doall (map #(a/put! img-chan (spy (.data %))) clj-imgs))
+                         (doall (map #(a/put! img-chan %) clj-imgs))
                          (a/>! next-chan (spy (js->clj l))))
                        (do
                          (a/close! img-chan)
@@ -213,9 +222,10 @@
     (info "image sticher started")
     (a/go-loop [item (a/<! i-chan)]
       (info "got an image")
+      (info item)
       (if (spy item)
         (do
-          (-> item
+          (->> item
               (reassemble-image)
               (upload-image)
               (delete-raw fs))
