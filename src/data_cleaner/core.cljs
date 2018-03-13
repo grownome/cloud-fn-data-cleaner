@@ -3,7 +3,7 @@
   (:require [clojure.string :as s]
             [initial-state :as is]
             [firebase-admin :as fa]
-            [cljs.core.async :as a ]
+            [cljs.core.async :as a]
             ["@google-cloud/bigquery" :as bq]
             [promesa.core :as p]
             [taoensso.timbre :as timbre
@@ -14,11 +14,11 @@
 (defn store-capture
   [attrs data])
 
-(defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa) )
+(defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa))
                                      :databaseURL "https://grownome.firebaseio.com"}))
 
 (defonce bq-client  (new bq #js {
-                             :projectId "grownome"}))
+                                 :projectId "grownome"}))
 ; Bad Juju
 (defonce users
   {"0" ["Q7S374HJ4MGR" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"]
@@ -33,7 +33,7 @@
         (.table table)
         (.insert data)
         (.then #(info "inserted data"))
-        (.catch (fn [err ]
+        (.catch (fn [err]
                   (error "insert error " err)
                   (spy (js->clj (aget err "errors")))
                   (debug (js-keys err))))))
@@ -44,7 +44,7 @@
   (.push bucket reading value timestamp))
 
 (defn cleanup-temp [value]
-  (+ (* value (/ 9 5)) 32))
+  ((js/Math.Round (+ (* value (/ 9 5)) 32))))
 
 (defn clean-value [name value]
   (if (s/includes? name "temp")
@@ -158,7 +158,7 @@
   (info "reassembling image")
   (let [
         parts (into [] (map (fn [[k v]] (first v))
-                      (group-by #(aget (.data %) "subFolder") parts)))
+                        (group-by #(aget (.data %) "subFolder") parts)))
         a-part (spy (js->clj (.data (first parts))))
         expected-parts (inc (js/parseInt (get a-part "image_max_index")))
         device-id (get a-part "deviceNumId")
@@ -207,19 +207,19 @@
         next-chan (a/chan)]
     (a/go-loop [c cursor]
       (p/then (.get c)
-               (fn [a-few-images]
-                 (let [clj-imgs (js->clj (.-docs a-few-images))]
-                   (a/go
-                     (info "trying to reconstruct")
-                     (if (> (count clj-imgs) 0)
-                       (let [l (.data (last clj-imgs))]
-                         (info "trying to put image on chan")
-                         (doall (map #(a/put! img-chan %) clj-imgs))
-                         (a/>! next-chan (spy (js->clj l))))
-                       (do
-                         (info "closing channels")
-                         (a/close! img-chan)
-                         (a/close! next-chan)))))))
+              (fn [a-few-images]
+                (let [clj-imgs (js->clj (.-docs a-few-images))]
+                  (a/go
+                    (info "trying to reconstruct")
+                    (if (> (count clj-imgs) 0)
+                      (let [l (.data (last clj-imgs))]
+                        (info "trying to put image on chan")
+                        (doall (map #(a/put! img-chan %) clj-imgs))
+                        (a/>! next-chan (spy (js->clj l))))
+                      (do
+                        (info "closing channels")
+                        (a/close! img-chan)
+                        (a/close! next-chan)))))))
       (when-let [next (a/<! next-chan)]
         (info "getting next page")
         (recur  (images-by-id fs (get next "image_id")))))
