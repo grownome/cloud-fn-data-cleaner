@@ -44,7 +44,7 @@
   (.push bucket reading value timestamp))
 
 (defn cleanup-temp [value]
-  ((js/Math.Round (+ (* value (/ 9 5)) 32))))
+  (js/Math.round (+ (* value (/ 9 5)) 32)))
 
 (defn clean-value [name value]
   (if (s/includes? name "temp")
