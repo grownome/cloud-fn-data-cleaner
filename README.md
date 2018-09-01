@@ -22,13 +22,15 @@ To acutally run the thing for development
 TODO
 To build
 ```
-lein cljsbuild once
+npm run prod
 ```
 
 To deploy
 ```
-gcloud beta functions deploy subscribe --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic huginn-tele
-gcloud beta functions deploy make_image --source target/js/compiled --stage-bucket grownome_fn_staging --trigger-topic daily
+
+gcloud beta functions deploy subscribe --source release --stage-bucket grownome_fn_staging --trigger-resource huginn-tele --trigger-event google.pubsub.topic.publish
+gcloud beta functions deploy make_image --source release --stage-bucket grownome_fn_staging --trigger-resource huginn-tele --trigger-event google.pubsub.topic.publish
+
 ```
 
 ## License
