@@ -25,11 +25,7 @@
         :output-dir "target/js/compiled/dev"
         :exports {:subscribe data-cleaner.core/subscribe
                   :make_image data-cleaner.core/assemble-images}
-        :target :node-library
-        :npm-deps {"@google-cloud/storage" "1.6.0"
-                   "@google-cloud/bigquery" "1.0.0"
-                   :initial-state "0.2.0"
-                   :firebase-admin "5.9.0"}}
+        :target :node-library }
   :prod
   {:optimizations :none
    :install-deps true
@@ -40,8 +36,4 @@
    :source-map "release/index.js.map"
    :exports {:subscribe data-cleaner.core/subscribe
              :make_image data-cleaner.core/assemble-images}
-   :target :node-library
-   :npm-deps {"@google-cloud/storage" "1.6.0"
-              "@google-cloud/bigquery" "1.0.0"
-              :initial-state "0.2.0"
-              :firebase-admin "5.9.0"}}}}
+   :target :node-library }}}}

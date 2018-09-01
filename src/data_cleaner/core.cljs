@@ -1,8 +1,8 @@
 (ns data-cleaner.core
   (:require-macros [cljs.core.async :refer [go go-loop]])
   (:require [clojure.string :as s]
-            [initial-state :as is]
-            [firebase-admin :as fa]
+            ["firebase-admin" :as fa]
+            ["initial-state" :as is]
             [cljs.core.async :as a]
             ["@google-cloud/bigquery" :as bq]
             [promesa.core :as p]
@@ -86,15 +86,15 @@
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
               [reg user name value] (s/split data #"/")
-              readings-ref (-> fs (.collection "readings"))
+    ;          readings-ref (-> fs (.collection "readings"))
               [bucket-key access-key] (get users (or user "0"))
               clean-value (clean-value name (js/parseFloat value))
               b (is/bucket bucket-key access-key)]
           (push-inital-state b name clean-value (.-timestamp event))
-          (aset attributes "reading" clean-value)
-          (aset attributes "user" user)
-          (aset attributes "timestamp" (.-timestamp  event))
-          (.add  readings-ref attributes)
+    ;      (aset attributes "reading" clean-value)
+    ;      (aset attributes "user" user)
+    ;      (aset attributes "timestamp" (.-timestamp  event))
+    ;      (.add  readings-ref attributes)
           (p/then (bq-insert attributes)
                   #(callback)))))))
 
