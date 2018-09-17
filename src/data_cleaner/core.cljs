@@ -15,13 +15,7 @@
 (defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa))
                                      :databaseURL "https://grownome.firebaseio.com"}))
 
-(defonce bq-client  (new bq #js {
-                                 :projectId "grownome"}))
-; Bad Juju
-(defonce users
-  {"0" ["Q7S374HJ4MGR" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"]
-   "1" ["4TF3E3GQHP8E" "GgUpQkUzqBujBlrTM5vIpcBXWruYjkcA"]})
-
+(defonce bq-client  (new bq #js {:projectId "grownome"}))
 
 (defn bq-insert
   ([dataset table data]
@@ -49,6 +43,50 @@
     (cleanup-temp value)
     value))
 
+
+(def example-data
+  {"@type" "type.googleapis.com/google.pubsub.v1.PubsubMessage",
+   "attributes" {"deviceId" "bold-meadow",
+                 "deviceNumId" "2538009072846140",
+                 "deviceRegistryId" "nomes",
+                 "deviceRegistryLocation" "us-central1",
+                 "projectId" "grownome",
+                 "subFolder" "metrics/core-temp-main"},
+   "data" "bm9tZXMvMC9ib2xkLW1lYWRvdy1wYXlsb2FkLWNvcmUtdGVtcC1tYWluLzQ3LjA3OA=="})
+
+
+(comment
+  "
+ .then(snapshot => {
+                    snapshot.forEach(doc => {
+                                             console.log(doc.id, '=>', doc.data());
+                                             });
+                    })
+ .catch(err)
+"
+
+ )
+(defn get-device-promise
+  [fs num-id]
+  (info num-id)
+  (let [device-info (-> fs
+                        (.collection "devices")
+                        (.where "deviceNumId" "==" num-id)
+                        (.limit 1)
+                        (.get))
+        device-data (p/then device-info (fn [devices]
+                                          (first (js->clj (into [] (map #(.data %) (.-docs   devices)))))))]
+    device-data))
+
+(defn get-initial-state-promise
+  [device-promise]
+  (p/then device-promise
+          (fn [device ]
+            (info device)
+            (let [bucket-key (get device "bucketKey")
+                  access-key (get device "accessKey")]
+              [bucket-key access-key]))))
+
 (defn subscribe
   "Triggered from a message on a Cloud Pub/Sub topic.
   * @param {!Object} event The Cloud Functions event.
@@ -60,43 +98,54 @@
   :projectId grownome,
   :subFolder metrics/core-temp-max},
   :data bm9tZXMvYmx1ZS1jaGVycnktcGF5bG9hZC1jb3JlLXRlbXAtbWF4LzQzLjg1}
-  * @param {!Function} The callback function."
-  [event callback]
+  * @param {!Function} The callback function.
+
+  debug 
+  "
+  [event context]
   (let [pubsub-message  event
-        attributes (aget pubsub-message "attributes")
-        subfolder (aget attributes "subFolder")
+        clj-event (js->clj event)
+        attributes  (aget event "attributes")
+        subfolder (get-in clj-event ["attributes" "subFolder"])
         subparts (s/split subfolder #"/")]
     (info subparts)
     (if (= (first subparts) "captures")
       ;;; Is image
       (do
         (let [fs  (fa/firestore)
-              [kind rand-id max-idx idx] subparts
-              data (.from js/Buffer (aget pubsub-message "data"))
+              [kind image-hash max-idx idx] subparts
+              data (get clj-event "data")
               images-ref (-> fs (.collection "images"))]
           (aset attributes "image_part" data)
-          (aset attributes "image_id" rand-id)
+          (aset attributes "image_id" image-hash)
           (aset attributes "image_max_index" max-idx)
           (aset attributes "image_index" idx)
-          (aset attributes "timestamp" (.-timestamp  event))
-          (p/then (.add  images-ref attributes)
-                  (callback))))
+          ;This should be a proper timestamp object
+          (aset attributes "timestamp" (js/Date.now))
+          (.add  images-ref attributes)))
       ;;; Is metrics
       (do
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
               [reg user name value] (s/split data #"/")
               readings-ref (-> fs (.collection "readings"))
-              [bucket-key access-key] (get users (or user "0"))
+              device-data-promise (get-device-promise fs
+                                                      (js/parseInt
+                                                       (get-in clj-event ["attributes" "deviceNumId"])))
               clean-value (clean-value name (js/parseFloat value))
-              b (is/bucket bucket-key access-key)]
-          (push-inital-state b name clean-value (.-timestamp event))
+              ]
+          (-> (p/then (get-initial-state-promise device-data-promise)
+                      (fn [[bucket-key access-key]]
+                        (let [b (is/bucket bucket-key access-key)]
+                          (push-inital-state b name clean-value (.-timestamp event)))))
+              (p/catch (fn [err]
+                         (error err)
+                         )))
           (aset attributes "reading" clean-value)
           (aset attributes "user" user)
-          (aset attributes "timestamp" (.-timestamp  event))
-          ;(.add  readings-ref attributes)
-          (bq-insert attributes))))))
+          (aset attributes "timestamp" (.-timestamp  event)))
+          (bq-insert attributes)))))
 
 (defn assemble-images
-  [event callback]
-  (i/assemble-images event callback))
+  [event context]
+  (i/assemble-images event context))

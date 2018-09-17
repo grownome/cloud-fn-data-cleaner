@@ -7,6 +7,7 @@
             ["@google-cloud/bigquery" :as bq]
             [promesa.core :as p]
             [goog.crypt.Md5 :as MD5]
+            [goog.crypt :as gcrypt]
             [taoensso.timbre :as timbre
              :refer-macros [trace  debug  info  warn  error  fatal  report
                             tracef debugf infof warnf errorf fatalf reportf
@@ -20,7 +21,7 @@
 (defn md5
 "convert bytes to md5 bytes"
   [bytes-in]
-  (hash-bytes (goog.crypt.Md5.) bytes-in))
+  (gcrypt/byteArrayToHex (hash-bytes (goog.crypt.Md5.) bytes-in)))
 
 
 (defn images-by-id
@@ -61,7 +62,7 @@
                                      sorted))
             joined (.concat js/Buffer unencoded)]
 
-        (spy {:image joined :md5 (md5 joined) :device-id device-id :image-id image-id :refs part-refs})))))
+        (spy {:md5 (md5 joined) :device-id device-id :image-id image-id :refs part-refs})))))
 
 (defn upload-image
   [{:keys [device-id image-id image] :as image-data}]
@@ -112,7 +113,7 @@
     img-chan))
 
 (defn assemble-images
-  [event callback]
+  [event context]
   (let [fs (fa/firestore)
         images-ref (images-by-id fs)
         i-chan (images-chan fs images-ref)]
@@ -130,5 +131,4 @@
            (p/all accum)
            (fn [res]
              (info res)
-             (info "I think i'm done")
-             (callback))))))))
+             (info "I think i'm done"))))))))
