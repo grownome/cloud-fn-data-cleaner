@@ -8,6 +8,8 @@
             [promesa.core :as p]
             [goog.crypt.Md5 :as MD5]
             [goog.crypt :as gcrypt]
+            [cljs.spec.gen.alpha :as g]
+            [cljs.spec.alpha :as spec]
             [taoensso.timbre :as timbre
              :refer-macros [trace  debug  info  warn  error  fatal  report
                             tracef debugf infof warnf errorf fatalf reportf
@@ -17,6 +19,11 @@
   (do
     (.update digester bytes-in)
     (.digest digester)))
+
+
+(spec/fdef md5
+  :args array?
+  :ret string?)
 
 (defn md5
 "convert bytes to md5 bytes"
@@ -38,42 +45,60 @@
        (.orderBy "image_id")
        (.limit 200)))) ; order it by the image id so they are always groupd together
 
+(spec/fdef download-part
+  :args string?
+  :ret  p/promise?)
+
+(defn  download-part
+  [url]
+  (let [stor (.storage fa)
+        bucket (.bucket stor "grownome.appspot.com")
+        file (.file bucket url)
+        metadata #js {"contentType" "text"}]
+     (.download file)))
+
 (defn reassemble-image
   "checks to see if all the parts are there and then assembles one image
   or not"
   [parts]
   (info "reassembling image")
-  (let [
-        parts (into [] (map (fn [[k v]] (first v))
-                        (group-by #(aget (.data %) "subFolder") parts)))
-        a-part (spy (js->clj (.data (first parts))))
-        expected-parts (inc (js/parseInt (get a-part "image_max_index")))
-        device-id (get a-part "deviceNumId")
-        part-refs (into [] (map #(.-ref %) parts))
-        image-id (get a-part "image_id")
-        part-data (map #(js->clj (.data %)) parts)]
-    (spy (mapv #(aget   (.data %) "subFolder") parts))
-    (when (= (spy expected-parts) (spy (count parts)))
-      (let [sorted (sort-by #(js/parseInt
-                              (last (s/split (get % "subFolder") "/"))) part-data)
-            unencoded (clj->js (into []
-                                     (map
-                                      #(.from js/Buffer (get % "image_part") "base64"))
-                                     sorted))
-            joined (.concat js/Buffer unencoded)]
-
-        (spy {:md5 (md5 joined) :device-id device-id :image-id image-id :refs part-refs})))))
+  (let [parts           (into [] (map (fn [[k v]] (first v))
+                                      (group-by #(aget (.data %) "subFolder") parts)))
+        a-part          (js->clj (.data (first parts)))
+        expected-parts  (inc (js/parseInt (get a-part "image_max_index")))
+        device-id       (get a-part "deviceNumId")
+        image-id        (get a-part "image_id")
+        part-refs       (into [] (map #(.-ref %) parts))
+        part-data       (map #(js->clj (.data %)) parts)
+        part-url        (map #(get % "image_part_url") part-data)
+        part-downloads  (map download-part part-url)]
+    (when (= (spy expected-parts) (count parts))
+      (let [sorted    (sort-by #(js/parseInt (get % "image_index")) part-data)
+            unencoded (clj->js (into [] (map #(js/Buffer.from % "base64")) sorted))
+            joined     (js/Buffer.concat unencoded)]
+        (info [(md5 joined) image-id])
+        {:image joined :md5 (md5 joined) :device-id device-id :image-id image-id :refs part-refs}))))
 
 (defn upload-image
   [{:keys [device-id image-id image] :as image-data}]
   (when image-data
-      (let [stor (.storage fa)
-            bucket (.bucket stor "grownome.appspot.com")
-            file (.file bucket (str "/" device-id "/" image-id ".jpg"))
+      (let [stor     (.storage fa)
+            bucket   (.bucket stor "grownome.appspot.com")
+            file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
             metadata #js {"contentType" "image/jpeg"}]
         (p/then (.save file image)
                 (fn [v]
                   (dissoc image-data :image))))))
+
+(defn upload-image-part
+  [{:keys [device-id image-id part-id image-part] :as image-data}]
+  (let [stor     (.storage fa)
+        bucket   (.bucket stor "grownome.appspot.com")
+        url      (str "/parts/" device-id "/" part-id "_" image-id ".jpg")
+        file     (.file bucket url)
+        metadata #js {"contentType" "text"}]
+    (p/then (.save file image-part)
+            (fn [resp]  url))))
 
 (defn delete-raw
   [fs prom]
@@ -86,11 +111,11 @@
 (defn images-chan
   [fs cursor]
   (let [img-chan (a/chan 50 (comp
-                                  (partition-by #(aget (spy (.data %)) "image_id"))
-                                  (map  #(->> %
-                                              (reassemble-image)
-                                              (upload-image)
-                                              (delete-raw fs)))))
+                             (partition-by #(aget (spy (.data %)) "image_id"))
+                             (map  #(->> %
+                                         (reassemble-image)
+                                         (upload-image)
+                                         (delete-raw fs)))))
         next-chan (a/chan)]
     (a/go-loop [c cursor]
       (p/then (.get c)

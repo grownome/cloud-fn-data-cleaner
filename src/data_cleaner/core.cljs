@@ -35,13 +35,22 @@
 (defn push-inital-state [bucket reading value timestamp]
   (.push bucket reading value timestamp))
 
+(defn offset-temp-factor [m b temp]
+  ;mx + b
+  (- temp (+ (* m temp) b)))
+
 (defn cleanup-temp [value]
-  (js/Math.round (+ (* value (/ 9 5)) 32)))
+  (let [adjust (partial offset-temp-factor 0.2 -9) ]
+    (js/Math.round (adjust (+ (* value (/ 9 5)) 32)))))
+
+(defn cleanup-humidity  [value]
+  (js/Math.round value))
+
 
 (defn clean-value [name value]
-  (if (s/includes? name "temp")
-    (cleanup-temp value)
-    value))
+  (cond (s/includes? name "temp") (cleanup-temp value)
+        (s/includes? name "humidity") (cleanup-humidity value)
+        :else value))
 
 
 (def example-data
@@ -74,15 +83,20 @@
                         (.where "deviceNumId" "==" num-id)
                         (.limit 1)
                         (.get))
-        device-data (p/then device-info (fn [devices]
-                                          (first (js->clj (into [] (map #(.data %) (.-docs   devices)))))))]
+        device-data
+        (p/then device-info
+                (fn [devices]
+                  (first (js->clj
+                          (into []
+                                (map
+                                 #(.data %)
+                                 (.-docs   devices)))))))]
     device-data))
 
 (defn get-initial-state-promise
   [device-promise]
   (p/then device-promise
           (fn [device ]
-            (info device)
             (let [bucket-key (get device "bucketKey")
                   access-key (get device "accessKey")]
               [bucket-key access-key]))))
@@ -100,47 +114,56 @@
   :data bm9tZXMvYmx1ZS1jaGVycnktcGF5bG9hZC1jb3JlLXRlbXAtbWF4LzQzLjg1}
   * @param {!Function} The callback function.
 
-  debug 
+  debug
   "
   [event context]
   (let [pubsub-message  event
-        clj-event (js->clj event)
-        attributes  (aget event "attributes")
-        subfolder (get-in clj-event ["attributes" "subFolder"])
-        subparts (s/split subfolder #"/")]
+        clj-event       (js->clj event)
+        attributes      (aget event "attributes")
+        subfolder       (get-in clj-event ["attributes" "subFolder"])
+        device-num-id   (get-in clj-event ["attributes" "deviceNumId"])
+        subparts        (s/split subfolder #"/")]
     (info subparts)
     (if (= (first subparts) "captures")
       ;;; Is image
       (do
-        (let [fs  (fa/firestore)
+        (let [fs                            (fa/firestore)
               [kind image-hash max-idx idx] subparts
-              data (get clj-event "data")
-              images-ref (-> fs (.collection "images"))]
-          (aset attributes "image_part" data)
-          (aset attributes "image_id" image-hash)
-          (aset attributes "image_max_index" max-idx)
-          (aset attributes "image_index" idx)
-          ;This should be a proper timestamp object
-          (aset attributes "timestamp" (js/Date.now))
-          (.add  images-ref attributes)))
+              data                          (get clj-event "data")
+              images-ref                    (-> fs (.collection "images"))
+
+              upload-data                   {:device-id  (get-in clj-event ["attributes" "deviceNumId"])
+                                             :image-id   image-hash
+                                             :part-id    idx
+                                             :image-part data}]
+          (p/then (i/upload-image-part upload-data)
+                  (fn [upload-url]
+                    (let [attributes
+                          #js
+                          {"image_part_url"  upload-url
+                           "image_id"        image-hash
+                           "image_max_index" max-idx
+                           "image_index"     idx
+                           "deviceNumId"     device-num-id
+                           "subFolder"       subfolder
+                           "timestamp"       (js/Date.now)}])
+                    (.add images-ref attributes)))))
       ;;; Is metrics
       (do
         (let [fs  (fa/firestore)
               data (.from js/Buffer (aget pubsub-message "data") "base64")
               [reg user name value] (s/split data #"/")
-              readings-ref (-> fs (.collection "readings"))
-              device-data-promise (get-device-promise fs
+              readings-ref          (-> fs (.collection "readings"))
+              device-data-promise   (get-device-promise fs
                                                       (js/parseInt
                                                        (get-in clj-event ["attributes" "deviceNumId"])))
-              clean-value (clean-value name (js/parseFloat value))
-              ]
+              clean-value (clean-value name (js/parseFloat value))]
           (-> (p/then (get-initial-state-promise device-data-promise)
                       (fn [[bucket-key access-key]]
                         (let [b (is/bucket bucket-key access-key)]
                           (push-inital-state b name clean-value (.-timestamp event)))))
               (p/catch (fn [err]
-                         (error err)
-                         )))
+                         (error err))))
           (aset attributes "reading" clean-value)
           (aset attributes "user" user)
           (aset attributes "timestamp" (.-timestamp  event)))
