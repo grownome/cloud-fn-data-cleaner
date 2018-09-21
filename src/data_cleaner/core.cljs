@@ -132,12 +132,15 @@
               data                          (get clj-event "data")
               images-ref                    (-> fs (.collection "images"))
 
-              upload-data                   {:device-id  (get-in clj-event ["attributes" "deviceNumId"])
+              upload-data                   {:device-id  (get-in clj-event
+                                                                 ["attributes"
+                                                                  "deviceNumId"])
                                              :image-id   image-hash
                                              :part-id    idx
-                                             :image-part data}]
+                                             :image-part data}
+              upload-url (i/part-url upload-data)]
           (p/then (i/upload-image-part upload-data)
-                  (fn [upload-url]
+                  (fn [_]
                     (let [attributes
                           #js
                           {"image_part_url"  upload-url

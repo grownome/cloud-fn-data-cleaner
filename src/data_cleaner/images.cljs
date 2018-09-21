@@ -90,11 +90,15 @@
                 (fn [v]
                   (dissoc image-data :image))))))
 
+(defn part-url
+  [{:keys [device-id image-id part-id] :as image-data}]
+  (str "/parts/" device-id "/" part-id "_" image-id ".jpg"))
+
 (defn upload-image-part
   [{:keys [device-id image-id part-id image-part] :as image-data}]
   (let [stor     (.storage fa)
         bucket   (.bucket stor "grownome.appspot.com")
-        url      (str "/parts/" device-id "/" part-id "_" image-id ".jpg")
+        url      (part-url image-data)
         file     (.file bucket url)
         metadata #js {"contentType" "text"}]
     (p/then (.save file image-part)
