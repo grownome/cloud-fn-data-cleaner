@@ -40,7 +40,7 @@
   (- temp (+ (* m temp) b)))
 
 (defn cleanup-temp [value]
-  (let [adjust (partial offset-temp-factor 0.2 -9) ]
+  (let [adjust (partial offset-temp-factor 0.21 -13) ]
     (js/Math.round (adjust (+ (* value (/ 9 5)) 32)))))
 
 (defn cleanup-humidity  [value]
