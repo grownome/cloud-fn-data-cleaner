@@ -92,7 +92,7 @@
       (let [stor     (.storage fa)
             bucket   (.bucket stor "grownome.appspot.com")
             file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
-            metadata #js {"contentType" "image/jpeg"}]
+            metadata #js {"contentType" "image/png"}]
         (p/then (.save file image)
                 (fn [v]
                   (dissoc image-data :image))))))

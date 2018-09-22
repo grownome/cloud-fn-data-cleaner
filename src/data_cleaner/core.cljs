@@ -28,8 +28,10 @@
         (.then #(info "inserted data"))
         (.catch (fn [err]
                   (error "insert error " err)
-                  (spy (js->clj (aget err "errors")))
-                  (debug (js-keys err))))))
+                  (error (js->clj data))
+                  (error (js->clj (aget err "errors")))
+                  (error (js->clj (aget err "response")))
+                  (error (js-keys err))))))
   ([data]
    (bq-insert "grownome" "metrics" data)))
 
@@ -137,8 +139,10 @@
         (let [fs                            (fa/firestore)
               ;use the subfolder to label the image with it's hash and part-id
               [kind image-hash max-idx idx] subparts
-              ; the the blob out of the 
-              data                          (get clj-event "data")
+              ; the the blob out of the
+              data                          (b64/decodeStringToByteArray
+                                             (b64/decodeString
+                                              (.-data event)))
               images-ref                    (-> fs (.collection "images"))
 
               upload-data                   {:device-id  (get-in clj-event
@@ -152,30 +156,30 @@
                   (fn [_]
                     (let [attributes
                           #js
-                          {"image_part_url"  upload-url
-                           "image_id"        image-hash
-                           "image_max_index" max-idx
-                           "image_index"     idx
+                          {"imagePartUrl"  upload-url
+                           "imageId"        image-hash
+                           "imageMaxIndex" max-idx
+                           "imageIndex"     idx
                            "deviceNumId"     device-num-id
                            "subFolder"       subfolder
-                           "timestamp"       (js/Date.now)}])
-                    (.add images-ref attributes)))))
+                           "timestamp"       (js/Date.now)}]
+                      (.add images-ref attributes))))))
       ;;; Is metrics
       (do
         ;decode the data passed from the device
         (let [fs (fa/firestore)
-              data (b64/decodeStringToByteArray (aget pubsub-message "data"))
+              data (b64/decodeString (aget pubsub-message "data"))
               ;the folder name will be like metrics/humdity
               [kind metric-name] subparts
               ;it will be some thing like
               ;/nomes/0/device-name-temp/10
-              [reg user _ value] (s/split data #"/")
+              [reg user name value] (s/split data #"/")
               ;get the device data by the numeric id
-              device-data-promise   (get-device-promise fs
-                                                      (js/parseInt
-                                                       (get-in clj-event ["attributes" "deviceNumId"])))
+              device-num-id              (js/parseInt
+                                          (get-in clj-event ["attributes" "deviceNumId"]))
+              device-data-promise   (get-device-promise fs device-num-id)
               ;clean up the value what ever it is
-              clean-value (clean-value metric-name (js/parseFloat value))]
+              clean-value (clean-value name (js/parseFloat value))]
           ;send the metric to inital state
           (-> (p/then
                ;first get the keys for the initial-state bucket from fs
@@ -189,9 +193,11 @@
               (p/catch (fn [err]
                          (error err))))
           ;set the column name to the metric name
-          (aset attributes metric-name clean-value)
+          (aset attributes (subfolder-name-to-bq-name metric-name) clean-value)
+          (js-delete attributes "data")
+          (aset attributes "deviceNumId" device-num-id)
           (aset attributes "user" user)
-          (aset attributes "timestamp" (js/Date.now)))
+          (aset attributes "timestamp" (bq/timestamp (js/Date.now))))
           (bq-insert attributes)))))
 
 (defn assemble-images
