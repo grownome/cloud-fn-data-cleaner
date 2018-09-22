@@ -7,6 +7,7 @@
             ["@google-cloud/bigquery" :as bq]
             [data-cleaner.images :as i]
             [promesa.core :as p]
+            [goog.crypt.base64 :as b64]
             [taoensso.timbre :as timbre
              :refer-macros [trace  debug  info  warn  error  fatal  report
                             tracef debugf infof warnf errorf fatalf reportf
@@ -101,6 +102,12 @@
                   access-key (get device "accessKey")]
               [bucket-key access-key]))))
 
+(def subfolder-name-to-bq-name
+  {"core-temp-max" "coreTempMax"
+   "core-temp-main" "coreTempMain"
+   "humidity" "humidity"
+   "temperature" "temperature"
+   })
 (defn subscribe
   "Triggered from a message on a Cloud Pub/Sub topic.
   * @param {!Object} event The Cloud Functions event.
@@ -128,7 +135,9 @@
       ;;; Is image
       (do
         (let [fs                            (fa/firestore)
+              ;use the subfolder to label the image with it's hash and part-id
               [kind image-hash max-idx idx] subparts
+              ; the the blob out of the 
               data                          (get clj-event "data")
               images-ref                    (-> fs (.collection "images"))
 
@@ -138,7 +147,7 @@
                                              :image-id   image-hash
                                              :part-id    idx
                                              :image-part data}
-              upload-url (i/part-url upload-data)]
+              upload-url                     (i/part-url upload-data)]
           (p/then (i/upload-image-part upload-data)
                   (fn [_]
                     (let [attributes
@@ -153,23 +162,36 @@
                     (.add images-ref attributes)))))
       ;;; Is metrics
       (do
-        (let [fs  (fa/firestore)
-              data (.from js/Buffer (aget pubsub-message "data") "base64")
-              [reg user name value] (s/split data #"/")
-              readings-ref          (-> fs (.collection "readings"))
+        ;decode the data passed from the device
+        (let [fs (fa/firestore)
+              data (b64/decodeStringToByteArray (aget pubsub-message "data"))
+              ;the folder name will be like metrics/humdity
+              [kind metric-name] subparts
+              ;it will be some thing like
+              ;/nomes/0/device-name-temp/10
+              [reg user _ value] (s/split data #"/")
+              ;get the device data by the numeric id
               device-data-promise   (get-device-promise fs
                                                       (js/parseInt
                                                        (get-in clj-event ["attributes" "deviceNumId"])))
-              clean-value (clean-value name (js/parseFloat value))]
-          (-> (p/then (get-initial-state-promise device-data-promise)
+              ;clean up the value what ever it is
+              clean-value (clean-value metric-name (js/parseFloat value))]
+          ;send the metric to inital state
+          (-> (p/then
+               ;first get the keys for the initial-state bucket from fs
+               (get-initial-state-promise device-data-promise)
+               ;then
                       (fn [[bucket-key access-key]]
+                        ;push the metric to intial state
                         (let [b (is/bucket bucket-key access-key)]
-                          (push-inital-state b name clean-value (.-timestamp event)))))
+                          (push-inital-state b metric-name clean-value (.-timestamp event)))))
+              ;catch any errors
               (p/catch (fn [err]
                          (error err))))
-          (aset attributes "reading" clean-value)
+          ;set the column name to the metric name
+          (aset attributes metric-name clean-value)
           (aset attributes "user" user)
-          (aset attributes "timestamp" (.-timestamp  event)))
+          (aset attributes "timestamp" (js/Date.now)))
           (bq-insert attributes)))))
 
 (defn assemble-images

@@ -7,6 +7,7 @@
             ["@google-cloud/bigquery" :as bq]
             [promesa.core :as p]
             [goog.crypt.Md5 :as MD5]
+            [goog.crypt.base64 :as b64]
             [goog.crypt :as gcrypt]
             [cljs.spec.gen.alpha :as g]
             [cljs.spec.alpha :as spec]
@@ -74,10 +75,16 @@
         part-downloads  (map download-part part-url)]
     (when (= (spy expected-parts) (count parts))
       (let [sorted    (sort-by #(js/parseInt (get % "image_index")) part-data)
-            unencoded (clj->js (into [] (map #(js/Buffer.from % "base64")) sorted))
+            unencoded (clj->js (into []
+                                     (map #(b64/decodeStringToByteArray % "base64"))
+                                     sorted))
             joined     (js/Buffer.concat unencoded)]
         (info [(md5 joined) image-id])
-        {:image joined :md5 (md5 joined) :device-id device-id :image-id image-id :refs part-refs}))))
+        {:image joined
+         :md5 (md5 joined)
+         :device-id device-id
+         :image-id image-id
+         :refs part-refs}))))
 
 (defn upload-image
   [{:keys [device-id image-id image] :as image-data}]
@@ -92,7 +99,7 @@
 
 (defn part-url
   [{:keys [device-id image-id part-id] :as image-data}]
-  (str "/parts/" device-id "/" part-id "_" image-id ".jpg"))
+  (str "/parts/" device-id "/" part-id "_" image-id ".base64"))
 
 (defn upload-image-part
   [{:keys [device-id image-id part-id image-part] :as image-data}]
