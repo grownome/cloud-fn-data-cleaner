@@ -203,6 +203,4 @@
 
 (defn assemble-images
   [event context done]
-  (a/go
-    (let [v (a/<! (i/assemble-images event context))]
-      (done v))))
+  (i/assemble-images event context done))

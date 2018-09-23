@@ -1,11 +1,12 @@
 {
   "devDependencies": {
-    "shadow-cljs": "^2.6.5"
+    "shadow-cljs": "^2.6.9"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^1.0.0",
-    "@google-cloud/storage": "^1.6.0",
+    "@google-cloud/storage": "^1.7.0",
     "bluebird": "^3.5.1",
+    "combined-stream2": "^1.1.2",
     "firebase-admin": "^6.0.0",
     "initial-state": "^0.2.0",
     "source-map-support": "^0.5.9",
