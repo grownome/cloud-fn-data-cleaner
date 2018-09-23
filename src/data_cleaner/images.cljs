@@ -130,11 +130,13 @@
             (fn [resp]  url))))
 
 (defn -upload-image
-  [{:keys [device-id image-id image-streams] :as image-data}]
+  [{:keys [device-id image-id image-streams md5] :as image-data}]
   (when image-data
     (let [stor     storage-client
           bucket   (.bucket stor "grownome.appspot.com")
-          file     (.file bucket (str "/images/" device-id "/" image-id ".gif"))
+          file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
+          ;somewhere we are dopping data so this is left commeted out
+          ;metadata #js {"md5Hash" md5}
           writeable (.createWriteStream file)]
       (p/promise
        (fn [resolve reject]
@@ -152,19 +154,20 @@
         bucket (.bucket stor "grownome.appspot.com")
         file   (.file bucket url)]
     (.delete file)))
+
 (defn delete-raw
   [fs prom]
   (p/then prom
    (fn [{:keys [device-id image-id refs urls] :as image-info}]
-     (info image-info)
-     (info (.data (first refs)))
-     (let [firestore-deletes (p/all
-                              (mapv #(.delete
-                                      (.doc
-                                       (.collection fs "images")
-                                       (.-id %))) refs))
-           bucket-deletes (p/all (mapv delete-bucket urls))]
-       (p/all [firestore-deletes bucket-deletes])))))
+     (when image-info
+       (info image-info)
+       (let [firestore-deletes (p/all
+                                (mapv #(.delete
+                                        (.doc
+                                         (.collection fs "images")
+                                         (.-id %))) refs))
+             bucket-deletes (p/all (mapv delete-bucket urls))]
+         (p/all [firestore-deletes bucket-deletes]))))))
 
 (defn images-chan
   [fs cursor]
