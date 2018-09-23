@@ -79,7 +79,7 @@
   (info "reassembling image")
   ;; of the avalible parts
   ;; first convert them into clojure objects for ease
-  (let [clj-parts       (into [] (map #(js->clj (.data %)) parts))
+  (let [clj-parts       (into [] (distinct (map #(js->clj (.data %)) parts)))
         ;; then grab a part
         a-part          (first clj-parts)
         ;Grab the count of how many parts are expected
@@ -102,15 +102,17 @@
             sorted-streams (sort-by :name part-streams)
             combined-stream (cs2/create)
             ]
-        (doall (map (fn [part-stream] (.append combined-stream part-stream)) sorted-streams))
+        (doall (map (fn [part-stream]
+                      (.append combined-stream (:stream part-stream))) sorted-streams))
         {:image-streams combined-stream
          :md5 image-id
+         :urls part-urls
          :device-id device-id
          :image-id image-id
          :refs parts})
       ;if there are not enough parts recycle the ones we have
       (do
-        (doall (map #(a/put! recycle-chan %) parts))
+        ;(doall (map #(a/put! recycle-chan %) parts))
         ;and return nil
         nil))))
 
@@ -129,7 +131,6 @@
 
 (defn -upload-image
   [{:keys [device-id image-id image-streams] :as image-data}]
-  (info image-data)
   (when image-data
     (let [stor     storage-client
           bucket   (.bucket stor "grownome.appspot.com")
@@ -145,16 +146,25 @@
   [prom]
   (p/then prom -upload-image))
 
-
+(defn delete-bucket
+  [url]
+  (let [stor   storage-client
+        bucket (.bucket stor "grownome.appspot.com")
+        file   (.file bucket url)]
+    (.delete file)))
 (defn delete-raw
   [fs prom]
   (p/then prom
-   (fn [{:keys [device-id image-id refs] :as image-info}]
-     (let [b (.batch fs)]
-       (mapv #(.delete b %) refs)
-     (p/then (.commit b)
-               (fn [commit-res]
-                 (assoc image-info :cleaning-commit commit-res)))))))
+   (fn [{:keys [device-id image-id refs urls] :as image-info}]
+     (info image-info)
+     (info (.data (first refs)))
+     (let [firestore-deletes (p/all
+                              (mapv #(.delete
+                                      (.doc
+                                       (.collection fs "images")
+                                       (.-id %))) refs))
+           bucket-deletes (p/all (mapv delete-bucket urls))]
+       (p/all [firestore-deletes bucket-deletes])))))
 
 (defn images-chan
   [fs cursor]
