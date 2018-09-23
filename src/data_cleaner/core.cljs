@@ -140,9 +140,10 @@
               ;use the subfolder to label the image with it's hash and part-id
               [kind image-hash max-idx idx] subparts
               ; the the blob out of the
-              data                          (b64/decodeStringToByteArray
-                                             (b64/decodeString
-                                              (.-data event)))
+              data                          (js/Buffer.from
+                                             (b64/decodeStringToUint8Array
+                                              (b64/decodeString
+                                               (.-data event))))
               images-ref                    (-> fs (.collection "images"))
 
               upload-data                   {:device-id  (get-in clj-event
@@ -201,5 +202,7 @@
           (bq-insert attributes)))))
 
 (defn assemble-images
-  [event context]
-  (i/assemble-images event context))
+  [event context done]
+  (a/go
+    (let [v (a/<! (i/assemble-images event context))]
+      (done v))))

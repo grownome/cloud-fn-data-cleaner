@@ -36,14 +36,14 @@
   ([fs start-at]
    (-> fs
        (.collection "images") ; It's silly that we called the colletions with raw images images
-       (.orderBy "image_id")
+       (.orderBy "imageId")
        (.startAfter start-at)
        (.limit 200)))
   ([fs]
    "gets a cursor that returns all of the unprocessed images firestore"
    (-> fs
        (.collection "images") ; It's silly that we called the colletions with raw images images
-       (.orderBy "image_id")
+       (.orderBy "imageId")
        (.limit 200)))) ; order it by the image id so they are always groupd together
 
 (spec/fdef download-part
@@ -54,48 +54,62 @@
   [url]
   (let [stor (.storage fa)
         bucket (.bucket stor "grownome.appspot.com")
-        file (.file bucket url)
-        metadata #js {"contentType" "text"}]
+        file (.file bucket url)]
      (.download file)))
 
 (defn reassemble-image
   "checks to see if all the parts are there and then assembles one image
-  or not"
+  or not. All the items passed in are expected to be part of the same image"
   [parts]
   (info "reassembling image")
-  (let [parts           (into [] (map (fn [[k v]] (first v))
-                                      (group-by #(aget (.data %) "subFolder") parts)))
-        a-part          (js->clj (.data (first parts)))
-        expected-parts  (inc (js/parseInt (get a-part "image_max_index")))
+  ;; of the avalible parts
+  ;; first convert them into clojure objects for ease
+  (let [clj-parts       (into [] (map #(js->clj ( .data %)) (.-docs parts)))
+        ;; then grab a part
+        a-part          (first clj-parts)
+        ;Grab the count of how many parts are expected
+        expected-parts  (inc (js/parseInt (get clj-parts "imageMaxIndex")))
+        ; Grab the device id to use to construct a file name to put
+        ;the result of this operation in to google cloud storage
         device-id       (get a-part "deviceNumId")
-        image-id        (get a-part "image_id")
-        part-refs       (into [] (map #(.-ref %) parts))
-        part-data       (map #(js->clj (.data %)) parts)
-        part-url        (map #(get % "image_part_url") part-data)
-        part-downloads  (map download-part part-url)]
-    (when (= (spy expected-parts) (count parts))
-      (let [sorted    (sort-by #(js/parseInt (get % "image_index")) part-data)
-            unencoded (clj->js (into []
-                                     (map #(b64/decodeStringToByteArray % "base64"))
-                                     sorted))
-            joined     (js/Buffer.concat unencoded)]
-        (info [(md5 joined) image-id])
-        {:image joined
-         :md5 (md5 joined)
-         :device-id device-id
-         :image-id image-id
-         :refs part-refs}))))
+        ; As well as the image id
+        image-id        (get a-part "imageId")
+        ; then grab all the urls
+        part-url        (map #(get % "imagePartUrl") clj-parts)
+        ; Downloads the parts from google cloud storage and save the name with them
+        part-downloads  (map #(p/then (download-part %)
+                                      (fn [data] {:name % :data data})) part-url)
+        ; Wait for all of them to finish
+        all-parts-prom        (p/all part-downloads)]
+    (error a-part)
+    (when (= (spy expected-parts) (count clj-parts))
+       (p/then all-parts-prom
+           (fn [all-parts]
+             (debug (str "part group " device-id " ready"))
+             (let [sorted    (sort-by :name all-parts)
+                   unencoded (clj->js (into [] (map :data) sorted))
+                   joined     (js/Buffer.concat unencoded)]
+               (info [(md5 joined) image-id])
+               {:image joined
+                :md5 (md5 joined)
+                :device-id device-id
+                :image-id image-id
+                :refs parts}))))))
 
-(defn upload-image
+(defn -upload-image
   [{:keys [device-id image-id image] :as image-data}]
+  (spy image-data)
   (when image-data
       (let [stor     (.storage fa)
             bucket   (.bucket stor "grownome.appspot.com")
-            file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
-            metadata #js {"contentType" "image/png"}]
+            file     (.file bucket (str "/images/" device-id "/" image-id ".gif"))]
         (p/then (.save file image)
                 (fn [v]
                   (dissoc image-data :image))))))
+
+(defn upload-image
+  [prom]
+  (p/then prom -upload-image))
 
 (defn part-url
   [{:keys [device-id image-id part-id] :as image-data}]
@@ -106,8 +120,7 @@
   (let [stor     (.storage fa)
         bucket   (.bucket stor "grownome.appspot.com")
         url      (part-url image-data)
-        file     (.file bucket url)
-        metadata #js {"contentType" "text"}]
+        file     (.file bucket url)]
     (p/then (.save file image-part)
             (fn [resp]  url))))
 
@@ -117,12 +130,14 @@
    (fn [{:keys [device-id image-id refs] :as image-info}]
      (let [b (.batch fs)]
        (doall (map #(.delete b %) refs))
-       (.commit b)))))
+       (p/then (.commit b)
+               (fn [commit-res]
+                 (assoc image-info :cleaning-commit commit-res)))))))
 
 (defn images-chan
   [fs cursor]
   (let [img-chan (a/chan 50 (comp
-                             (partition-by #(aget (spy (.data %)) "image_id"))
+                             (partition-by #(aget (spy (.data %)) "imageId"))
                              (map  #(->> %
                                          (reassemble-image)
                                          (upload-image)
@@ -145,7 +160,7 @@
                         (a/close! next-chan)))))))
       (when-let [next (a/<! next-chan)]
         (info "getting next page")
-        (recur  (images-by-id fs (get next "image_id")))))
+        (recur  (images-by-id fs (get next "imageId")))))
     img-chan))
 
 (defn assemble-images
@@ -156,15 +171,14 @@
     (info "image sticher started")
     (a/go-loop [item (a/<! i-chan) accum []]
       (info "got an result")
-      (info item)
+      (p/then item info)
       (if (spy item)
         (do
           (info "recurring")
           (recur (a/<! i-chan) (conj accum item)))
         (do
           (info accum)
-          (p/then
-           (p/all accum)
+          (p/then (p/all accum)
            (fn [res]
              (info res)
-             (info "I think i'm done"))))))))
+             (info "I think i'm done") res)))))))
