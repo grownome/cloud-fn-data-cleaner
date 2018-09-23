@@ -5,8 +5,11 @@
             ["initial-state" :as is]
             [cljs.core.async :as a]
             ["@google-cloud/bigquery" :as bq]
+            ["@google-cloud/storage" :as st]
+            ["combined-stream2" :as cs2]
             [promesa.core :as p]
             [goog.crypt.Md5 :as MD5]
+            [goog.crypt.base64 :as b64]
             [goog.crypt :as gcrypt]
             [cljs.spec.gen.alpha :as g]
             [cljs.spec.alpha :as spec]
@@ -20,6 +23,7 @@
     (.update digester bytes-in)
     (.digest digester)))
 
+(defonce storage-client (new st #js {:projectId "grownome"}))
 
 (spec/fdef md5
   :args array?
@@ -35,88 +39,149 @@
   ([fs start-at]
    (-> fs
        (.collection "images") ; It's silly that we called the colletions with raw images images
-       (.orderBy "image_id")
+       (.orderBy "imageId")
        (.startAfter start-at)
        (.limit 200)))
   ([fs]
    "gets a cursor that returns all of the unprocessed images firestore"
    (-> fs
        (.collection "images") ; It's silly that we called the colletions with raw images images
-       (.orderBy "image_id")
+       (.orderBy "imageId")
        (.limit 200)))) ; order it by the image id so they are always groupd together
 
 (spec/fdef download-part
   :args string?
   :ret  p/promise?)
 
-(defn  download-part
+(defn  stream-part
   [url]
-  (let [stor (.storage fa)
+  (let [stor   storage-client
         bucket (.bucket stor "grownome.appspot.com")
-        file (.file bucket url)
-        metadata #js {"contentType" "text"}]
-     (.download file)))
+        file   (.file bucket url)]
+     (.createReadStream file)))
 
+
+(def example-image
+
+  {"imageId" "fdba2a29316fbe1eebf5b1fbc7b8a71d",
+   "deviceNumId" "2538009072846140",
+   "imagePartUrl" "/parts/2538009072846140/1_fdba2a29316fbe1eebf5b1fbc7b8a71d.base64",
+   "imageIndex" "1",
+   "timestamp" 1537688720517,
+   "subFolder" "captures/fdba2a29316fbe1eebf5b1fbc7b8a71d/4/1",
+   "imageMaxIndex" "4"})
 (defn reassemble-image
   "checks to see if all the parts are there and then assembles one image
-  or not"
-  [parts]
-  (info "reassembling image")
-  (let [parts           (into [] (map (fn [[k v]] (first v))
-                                      (group-by #(aget (.data %) "subFolder") parts)))
-        a-part          (js->clj (.data (first parts)))
-        expected-parts  (inc (js/parseInt (get a-part "image_max_index")))
-        device-id       (get a-part "deviceNumId")
-        image-id        (get a-part "image_id")
-        part-refs       (into [] (map #(.-ref %) parts))
-        part-data       (map #(js->clj (.data %)) parts)
-        part-url        (map #(get % "image_part_url") part-data)
-        part-downloads  (map download-part part-url)]
-    (when (= (spy expected-parts) (count parts))
-      (let [sorted    (sort-by #(js/parseInt (get % "image_index")) part-data)
-            unencoded (clj->js (into [] (map #(js/Buffer.from % "base64")) sorted))
-            joined     (js/Buffer.concat unencoded)]
-        (info [(md5 joined) image-id])
-        {:image joined :md5 (md5 joined) :device-id device-id :image-id image-id :refs part-refs}))))
+  or not. All the items passed in are expected to be part of the same image
 
-(defn upload-image
-  [{:keys [device-id image-id image] :as image-data}]
-  (when image-data
-      (let [stor     (.storage fa)
-            bucket   (.bucket stor "grownome.appspot.com")
-            file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
-            metadata #js {"contentType" "image/jpeg"}]
-        (p/then (.save file image)
-                (fn [v]
-                  (dissoc image-data :image))))))
+  "
+  [recycle-chan parts]
+  (info "reassembling image")
+  ;; of the avalible parts
+  ;; first convert them into clojure objects for ease
+  (let [clj-parts       (into [] (distinct (map #(js->clj (.data %)) parts)))
+        ;; then grab a part
+        a-part          (first clj-parts)
+        ;Grab the count of how many parts are expected
+        expected-parts  (inc (js/parseInt (get a-part "imageMaxIndex")))
+        ; Grab the device id to use to construct a file name to put
+        ;the result of this operation in to google cloud storage
+        device-id       (get a-part "deviceNumId")
+        ; As well as the image id
+        image-id        (get a-part "imageId")
+        ; then grab all the urls
+        part-urls       (mapv #(get % "imagePartUrl") clj-parts)
+        ; Downloads the parts from google cloud storage and save the name with them
+        ]
+    (info [expected-parts (count part-urls) (= expected-parts (count part-urls))])
+    (if (= expected-parts (count part-urls))
+      (let [part-streams (mapv (fn [url]
+                                 {:name url :stream (stream-part url)})
+                               part-urls)
+
+            sorted-streams (sort-by :name part-streams)
+            combined-stream (cs2/create)
+            ]
+        (doall (map (fn [part-stream]
+                      (.append combined-stream (:stream part-stream))) sorted-streams))
+        {:image-streams combined-stream
+         :md5 image-id
+         :urls part-urls
+         :device-id device-id
+         :image-id image-id
+         :refs parts})
+      ;if there are not enough parts recycle the ones we have
+      (do
+        ;(doall (map #(a/put! recycle-chan %) parts))
+        ;and return nil
+        nil))))
+
+(defn part-url
+  [{:keys [device-id image-id part-id] :as image-data}]
+  (str "/parts/" device-id "/" part-id "_" image-id ".base64"))
 
 (defn upload-image-part
   [{:keys [device-id image-id part-id image-part] :as image-data}]
   (let [stor     (.storage fa)
         bucket   (.bucket stor "grownome.appspot.com")
-        url      (str "/parts/" device-id "/" part-id "_" image-id ".jpg")
-        file     (.file bucket url)
-        metadata #js {"contentType" "text"}]
+        url      (part-url image-data)
+        file     (.file bucket url)]
     (p/then (.save file image-part)
             (fn [resp]  url))))
+
+(defn -upload-image
+  [{:keys [device-id image-id image-streams md5] :as image-data}]
+  (when image-data
+    (let [stor     storage-client
+          bucket   (.bucket stor "grownome.appspot.com")
+          file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
+          ;somewhere we are dopping data so this is left commeted out
+          ;metadata #js {"md5Hash" md5}
+          writeable (.createWriteStream file)]
+      (p/promise
+       (fn [resolve reject]
+         (.pipe image-streams writeable)
+         (.on writeable "finish" (fn [] (resolve image-data)))
+         (.on writeable "error" (fn [err] (reject err))))))))
+
+(defn upload-image
+  [prom]
+  (p/then prom -upload-image))
+
+(defn delete-bucket
+  [url]
+  (let [stor   storage-client
+        bucket (.bucket stor "grownome.appspot.com")
+        file   (.file bucket url)]
+    (.delete file)))
 
 (defn delete-raw
   [fs prom]
   (p/then prom
-   (fn [{:keys [device-id image-id refs] :as image-info}]
-     (let [b (.batch fs)]
-       (doall (map #(.delete b %) refs))
-       (.commit b)))))
+   (fn [{:keys [device-id image-id refs urls] :as image-info}]
+     (when image-info
+       (info image-info)
+       (let [firestore-deletes (p/all
+                                (mapv #(.delete
+                                        (.doc
+                                         (.collection fs "images")
+                                         (.-id %))) refs))
+             bucket-deletes (p/all (mapv delete-bucket urls))]
+         (p/all [firestore-deletes bucket-deletes]))))))
 
 (defn images-chan
   [fs cursor]
-  (let [img-chan (a/chan 50 (comp
-                             (partition-by #(aget (spy (.data %)) "image_id"))
+  (let [recycle-chan (a/chan 10)
+
+        img-chan (a/chan 50 (comp
+                             (partition-by #(aget (.data %) "imageId"))
                              (map  #(->> %
-                                         (reassemble-image)
+                                         (reassemble-image recycle-chan)
                                          (upload-image)
                                          (delete-raw fs)))))
-        next-chan (a/chan)]
+        next-chan (a/chan)
+        mixxer (a/mix img-chan)]
+    (a/admix mixxer recycle-chan)
     (a/go-loop [c cursor]
       (p/then (.get c)
               (fn [a-few-images]
@@ -134,26 +199,21 @@
                         (a/close! next-chan)))))))
       (when-let [next (a/<! next-chan)]
         (info "getting next page")
-        (recur  (images-by-id fs (get next "image_id")))))
+        (recur  (images-by-id fs (get next "imageId")))))
     img-chan))
 
 (defn assemble-images
-  [event context]
+  [event context done]
   (let [fs (fa/firestore)
         images-ref (images-by-id fs)
         i-chan (images-chan fs images-ref)]
     (info "image sticher started")
     (a/go-loop [item (a/<! i-chan) accum []]
-      (info "got an result")
-      (info item)
-      (if (spy item)
-        (do
-          (info "recurring")
-          (recur (a/<! i-chan) (conj accum item)))
-        (do
-          (info accum)
-          (p/then
-           (p/all accum)
-           (fn [res]
-             (info res)
-             (info "I think i'm done"))))))))
+      ;When there are no more images the channel will close and return nil
+      (if item
+        (recur (a/<! i-chan) (conj accum item))
+        (p/then (p/all accum)
+                (fn [res]
+                  (info res)
+                  (info "I think i'm done")
+                  (done res)))))))

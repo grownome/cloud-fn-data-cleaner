@@ -7,6 +7,7 @@
             ["@google-cloud/bigquery" :as bq]
             [data-cleaner.images :as i]
             [promesa.core :as p]
+            [goog.crypt.base64 :as b64]
             [taoensso.timbre :as timbre
              :refer-macros [trace  debug  info  warn  error  fatal  report
                             tracef debugf infof warnf errorf fatalf reportf
@@ -27,8 +28,10 @@
         (.then #(info "inserted data"))
         (.catch (fn [err]
                   (error "insert error " err)
-                  (spy (js->clj (aget err "errors")))
-                  (debug (js-keys err))))))
+                  (error (js->clj data))
+                  (error (js->clj (aget err "errors")))
+                  (error (js->clj (aget err "response")))
+                  (error (js-keys err))))))
   ([data]
    (bq-insert "grownome" "metrics" data)))
 
@@ -101,6 +104,12 @@
                   access-key (get device "accessKey")]
               [bucket-key access-key]))))
 
+(def subfolder-name-to-bq-name
+  {"core-temp-max" "coreTempMax"
+   "core-temp-main" "coreTempMain"
+   "humidity" "humidity"
+   "temperature" "temperature"
+   })
 (defn subscribe
   "Triggered from a message on a Cloud Pub/Sub topic.
   * @param {!Object} event The Cloud Functions event.
@@ -128,47 +137,70 @@
       ;;; Is image
       (do
         (let [fs                            (fa/firestore)
+              ;use the subfolder to label the image with it's hash and part-id
               [kind image-hash max-idx idx] subparts
-              data                          (get clj-event "data")
+              ; the the blob out of the
+              data                          (js/Buffer.from
+                                             (b64/decodeStringToUint8Array
+                                              (b64/decodeString
+                                               (.-data event))))
               images-ref                    (-> fs (.collection "images"))
 
-              upload-data                   {:device-id  (get-in clj-event ["attributes" "deviceNumId"])
+              upload-data                   {:device-id  (get-in clj-event
+                                                                 ["attributes"
+                                                                  "deviceNumId"])
                                              :image-id   image-hash
                                              :part-id    idx
-                                             :image-part data}]
+                                             :image-part data}
+              upload-url                     (i/part-url upload-data)]
           (p/then (i/upload-image-part upload-data)
-                  (fn [upload-url]
+                  (fn [_]
                     (let [attributes
                           #js
-                          {"image_part_url"  upload-url
-                           "image_id"        image-hash
-                           "image_max_index" max-idx
-                           "image_index"     idx
+                          {"imagePartUrl"  upload-url
+                           "imageId"        image-hash
+                           "imageMaxIndex" max-idx
+                           "imageIndex"     idx
                            "deviceNumId"     device-num-id
                            "subFolder"       subfolder
-                           "timestamp"       (js/Date.now)}])
-                    (.add images-ref attributes)))))
+                           "timestamp"       (js/Date.now)}]
+                      (.add images-ref attributes))))))
       ;;; Is metrics
       (do
-        (let [fs  (fa/firestore)
-              data (.from js/Buffer (aget pubsub-message "data") "base64")
+        ;decode the data passed from the device
+        (let [fs (fa/firestore)
+              data (b64/decodeString (aget pubsub-message "data"))
+              ;the folder name will be like metrics/humdity
+              [kind metric-name] subparts
+              ;it will be some thing like
+              ;/nomes/0/device-name-temp/10
               [reg user name value] (s/split data #"/")
-              readings-ref          (-> fs (.collection "readings"))
-              device-data-promise   (get-device-promise fs
-                                                      (js/parseInt
-                                                       (get-in clj-event ["attributes" "deviceNumId"])))
+              ;get the device data by the numeric id
+              device-num-id              (js/parseInt
+                                          (get-in clj-event ["attributes" "deviceNumId"]))
+              device-data-promise   (get-device-promise fs device-num-id)
+              ;clean up the value what ever it is
               clean-value (clean-value name (js/parseFloat value))]
-          (-> (p/then (get-initial-state-promise device-data-promise)
+          ;send the metric to inital state
+          (-> (p/then
+               ;first get the keys for the initial-state bucket from fs
+               (get-initial-state-promise device-data-promise)
+               ;then
                       (fn [[bucket-key access-key]]
+                        ;push the metric to intial state
                         (let [b (is/bucket bucket-key access-key)]
-                          (push-inital-state b name clean-value (.-timestamp event)))))
+                          (push-inital-state b metric-name clean-value (.-timestamp event)))))
+              ;catch any errors
               (p/catch (fn [err]
                          (error err))))
-          (aset attributes "reading" clean-value)
+          ;set the column name to the metric name
+          (aset attributes (subfolder-name-to-bq-name metric-name) clean-value)
+          (js-delete attributes "data")
+          (aset attributes "deviceNumId" device-num-id)
           (aset attributes "user" user)
-          (aset attributes "timestamp" (.-timestamp  event)))
+          (aset attributes "timestamp" (bq/timestamp (js/Date.now))))
           (bq-insert attributes)))))
 
 (defn assemble-images
-  [event context]
-  (i/assemble-images event context))
+  [event context done]
+  (i/assemble-images event context done))
