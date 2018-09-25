@@ -36,4 +36,4 @@
    :source-map "release/index.js.map"
    :exports {:subscribe data-cleaner.core/subscribe
              :make_image data-cleaner.core/assemble-images}
-   :target :node-library }}}}
+   :target :node-library }}}
