@@ -4,6 +4,12 @@ steps:
   - name: 'gcr.io/grownome/shadow-cljs'
     args: ['compile', 'prod']
   - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+    cp package* release/
+  - name: 'gcr.io/cloud-builders/gcloud'
     args: ['beta', 'functions', 'deploy', 'make_image', '--source', 'release', '--stage-bucket', 'grownome_fn_staging', '--trigger-topic', 'daily']
   - name: 'gcr.io/cloud-builders/gcloud'
     args: ['beta', 'functions', 'deploy', 'subscribe', '--source', 'release', '--stage-bucket', 'grownome_fn_staging', '--trigger-topic', 'huginn-tele']
