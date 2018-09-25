@@ -8,7 +8,8 @@ steps:
     args:
     - '-c'
     - |
-    cp package* release/
+       cp package* release/
+
   - name: 'gcr.io/cloud-builders/gcloud'
     args: ['beta', 'functions', 'deploy', 'make_image', '--source', 'release', '--stage-bucket', 'grownome_fn_staging', '--trigger-topic', 'daily']
   - name: 'gcr.io/cloud-builders/gcloud'
