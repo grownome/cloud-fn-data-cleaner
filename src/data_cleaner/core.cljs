@@ -67,17 +67,6 @@
    "data" "bm9tZXMvMC9ib2xkLW1lYWRvdy1wYXlsb2FkLWNvcmUtdGVtcC1tYWluLzQ3LjA3OA=="})
 
 
-(comment
-  "
- .then(snapshot => {
-                    snapshot.forEach(doc => {
-                                             console.log(doc.id, '=>', doc.data());
-                                             });
-                    })
- .catch(err)
-"
-
- )
 (defn get-device-promise
   [fs num-id]
   (info num-id)

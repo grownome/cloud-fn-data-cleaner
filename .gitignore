@@ -5,7 +5,7 @@
 /node_modules
 pom.xml
 pom.xml.asc
-.shadow-cljs
+/.shadow-cljs
 /target
 .#*
 *.jar
