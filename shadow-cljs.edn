@@ -7,8 +7,11 @@
   [funcool/promesa "1.9.0"]
   [com.taoensso/timbre "4.10.0"]
   [org.clojure/core.async "0.4.474"]
+  [sqlingvo "0.9.28"]
   [cider/cider-nrepl "0.17.0-SNAPSHOT"]
-  [org.clojure/clojurescript "1.9.946"]]
+  [walkable "1.0.0-SNAPSHOT"]
+
+  [org.clojure/clojurescript "1.10.339"]]
 
   :nrepl {:port 9000
          :middleware []}
@@ -17,20 +20,18 @@
  {
   :dev {
         :optimizations :none
-        :install-deps true
         :main data-cleaner.core
         :asset-path "target/js/compiled/dev"
-        :output-to "target/js/compiled/index.js"
-        :source-map "release/index.js.map"
+        :output-to  "target/js/compiled/index.js"
+        :source-map "target/index.js.map"
         :output-dir "target/js/compiled/dev"
         :exports {:subscribe data-cleaner.core/subscribe
                   :make_image data-cleaner.core/assemble-images}
         :target :node-library }
   :prod
   {:optimizations :none
-   :install-deps true
    :main data-cleaner.core
-   :asset-path "target/js/compiled/prod"
+   :asset-path "release/js/compiled/prod"
    :output-to "release/index.js"
    :output-dir "release/prod"
    :source-map "release/index.js.map"

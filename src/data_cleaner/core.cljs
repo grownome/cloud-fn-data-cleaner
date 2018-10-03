@@ -6,6 +6,7 @@
             [cljs.core.async :as a]
             ["@google-cloud/bigquery" :as bq]
             [data-cleaner.images :as i]
+            [data-cleaner.sql :as sql]
             [promesa.core :as p]
             [goog.crypt.base64 :as b64]
             [taoensso.timbre :as timbre
