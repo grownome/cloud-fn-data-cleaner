@@ -10,7 +10,7 @@
   [sqlingvo "0.9.28"]
   [cider/cider-nrepl "0.17.0-SNAPSHOT"]
   [walkable "1.0.0-SNAPSHOT"]
-
+  [orchestra "2018.09.10-1"]
   [org.clojure/clojurescript "1.10.339"]]
 
   :nrepl {:port 9000

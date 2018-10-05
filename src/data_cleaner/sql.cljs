@@ -4,11 +4,14 @@
    [data-cleaner.utils :as utils]
    [data-cleaner.pg :as pg]
    [cljs.spec.alpha :as s]
+   [orchestra-cljs.spec.test :as st]
    [cljs.core.async :as a]
    [taoensso.timbre :as timbre
     :refer-macros [trace  debug  info  warn  error  fatal  report
                    tracef debugf infof warnf errorf fatalf reportf]]))
 
+
+(st/instrument)
 
 (defn get-config
   []
@@ -28,6 +31,11 @@
              :socket-path
              (str "/cloudsql/" (get env "INSTANCE_CONNECTION_NAME")))
       base-config)))
+
+(defn check [type data]
+  (if (s/valid? type data)
+    true
+    (throw (js/Error. (s/explain type data)))))
 
 (defonce db (pg/open-pool (get-config)))
 
@@ -83,24 +91,38 @@ CREATE TABLE image(
 (s/def :user/name string?)
 (s/def :user/email (s/and string? #"\A[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z"))
 (s/def :user/created-on inst?)
-(s/def :grownome/user (s/keys :req [:user/id :user/name :user/email :user/created-on]))
-
+(s/def :grownome/user (s/keys :req [:user/id
+                                    :user/name
+                                    :user/email
+                                    :user/created-on]))
 
 (s/def :device/id         integer?)
-(s/def :device/iot_num_id integer?)
+(s/def :device/iot-num-id integer?)
 (s/def :device/name       string?)
-(s/def :device/resin_name string?)
-(s/def :device/short_link uri?)
+(s/def :device/resin-name string?)
+(s/def :device/short-link uri?)
 (s/def :grownome/device (s/keys :req [:device/id
-                             :device/iot_num_id
+                             :device/iot-num-id
                              :device/name
-                             :device/resin_name
-                             :device/short_link]))
+                             :device/resin-name
+                             :device/short-link]))
+
 
 (s/def :owner/id integer?)
 (s/def :grownome/owner (s/keys :req [:owner/id
                             :user/id
                             :device/id]))
+
+(s/def :image/md5 string?)
+(s/def :image/path string?)
+(s/def :image/created-on inst?)
+(s/def :grownome/image (s/keys :req
+                               [:image/md5
+                                :device/iot-num-id
+                                :user/id
+                                :image/path
+                                :image/created-on]))
+
 (def build-owner-table
   "
   CREATE TABLE owner(
@@ -139,27 +161,35 @@ CREATE TABLE image(
 ")
 
 (defn insert-image
-  [db {:keys [md5
-              device-num-id
-              user-id
-              path
-              created-on] :as metric-row}]
+  [db {md5 :image/md5
+        iot-num-id :device/iot-num-id
+        user-id  :user/id
+        path     :image/path
+        created-on :image/created-on :as image-row}]
     (pg/insert!
      db
      insert-image-query
      [md5
-      device-num-id
+      iot-num-id
       user-id
       path
       created-on]))
 
+(s/fdef build-image
+  :args (s/cat :md5 :image/md5
+               :device-num-id :device/iot-num-id
+               :user-id :user/id
+               :path :image/path
+               :created-on :image/created-on)
+  :ret :grownome/image)
+
 (defn build-image
   [md5 device-num-id user-id path created-on]
-  {:md5           md5
-   :device-num-id device-num-id
-   :user-id       user-id
-   :path          path
-   :created-on    created-on})
+  {:image/md5           md5
+   :device/iot-num-id device-num-id
+   :user/id       user-id
+   :image/path          path
+   :image/created-on    created-on})
 
 
 (def insert-metric-query
@@ -197,4 +227,26 @@ CREATE TABLE image(
    :device-registry-id device-registry-id
    :device-num-id      device-num-id
    :timestamp          (js/Date.)})
+
+(def insert-device-query
+  "
+  INSERT INTO
+  device(id,iot_num_id,name,resin_name,short_link)
+  VALUES($1,$2,$3,$4,$5)
+  RETURNING *
+  ")
+
+(defn insert-device
+  [db {md5 :image/md5
+       iot-num-id :device/iot-num-id
+       user-id  :user/id
+       path     :image/path
+       created-on :image/created-on :as metric-row}]
+  (pg/insert! db
+              insert-device-query
+              [md5
+               iot-num-id
+               user-id
+               path
+               created-on]))
 
