@@ -3,6 +3,11 @@
   (:require
    [data-cleaner.utils :as utils]
    [data-cleaner.pg :as pg]
+   [data-cleaner.owner :as owner]
+   [data-cleaner.user :as  user]
+   [data-cleaner.metric :as metric]
+   [data-cleaner.device :as device]
+   [data-cleaner.device :as image]
    [cljs.spec.alpha :as s]
    [orchestra-cljs.spec.test :as st]
    [cljs.core.async :as a]
@@ -32,221 +37,26 @@
              (str "/cloudsql/" (get env "INSTANCE_CONNECTION_NAME")))
       base-config)))
 
-(defn check [type data]
-  (if (s/valid? type data)
-    true
-    (throw (js/Error. (s/explain type data)))))
-
 (defonce db (pg/open-pool (get-config)))
-
-(def build-metric-table
-"
-CREATE TABLE metric(
-  device_registry_id	      VARCHAR(50) NOT NULL,
-  device_num_id	            INTEGER     NOT NULL,
-  core_temp_max	            NUMERIC,
-  core_temp_main	          NUMERIC,
-  humidity	                NUMERIC,
-  dewpoint                  NUMERIC,
-  temperature	              NUMERIC,
-  timestamp	                TIMESTAMP   NOT NULL
-  );
-")
-
-
-(def build-image-table
-"
-CREATE TABLE image(
-  md5 UUID         PRIMARY KEY,
-  device_num_id    INTEGER        NOT NULL,
-  user_id          VARCHAR (50)   REFERENCES user(id),
-  path             VARCHAR (355)  NOT NULL,
-  created_on       TIMESTAMP      NOT NULL
-  );
-  ")
-
-(def build-user-table
-  "
-  CREATE TABLE user(
-  id             VARCHAR (50)   PRIMARY KEY,
-  name           VARCHAR (50),
-  email          text  NOT NULL,
-  created_on     TIMESTAMP NOT NULL
-  );
-  ")
-
-(def build-device-table
-  "
-  CREATE TABLE device(
-  id             INTEGER        PRIMARY KEY,
-  iot_num_id     INTEGER        NOT NULL,
-  name           text           NOT NULL,
-  resin_name     text           NOT NULL,
-  short_link     text           NOT NULL
-  );
-  ")
-
-
-(s/def :user/id (s/and  string? #(< (count %) 50)))
-(s/def :user/name string?)
-(s/def :user/email (s/and string? #"\A[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\z"))
-(s/def :user/created-on inst?)
-(s/def :grownome/user (s/keys :req [:user/id
-                                    :user/name
-                                    :user/email
-                                    :user/created-on]))
-
-(s/def :device/id         integer?)
-(s/def :device/iot-num-id integer?)
-(s/def :device/name       string?)
-(s/def :device/resin-name string?)
-(s/def :device/short-link uri?)
-(s/def :grownome/device (s/keys :req [:device/id
-                             :device/iot-num-id
-                             :device/name
-                             :device/resin-name
-                             :device/short-link]))
-
-
-(s/def :owner/id integer?)
-(s/def :grownome/owner (s/keys :req [:owner/id
-                            :user/id
-                            :device/id]))
-
-(s/def :image/md5 string?)
-(s/def :image/path string?)
-(s/def :image/created-on inst?)
-(s/def :grownome/image (s/keys :req
-                               [:image/md5
-                                :device/iot-num-id
-                                :user/id
-                                :image/path
-                                :image/created-on]))
-
-(def build-owner-table
-  "
-  CREATE TABLE owner(
-  id                  SERIAL         PRIMARY KEY
-  user_id             VARCHAR (50)   REFERENCES device(id),
-  device_id           INTEGER        REFERENCES device(id)
-  );
-  ")
 
 (defn init-tabels
   "Build the grownome database"
   [done]
   (go
-
     (let [c (data-cleaner.pg/open-db (data-cleaner.sql/get-config))
           conn (a/<! (data-cleaner.pg/connect! c))
-          res-metrics (a/<!
-                       (data-cleaner.pg/execute! conn [data-cleaner.sql/build-metric-table]))
-          res-images (a/<!
-                      (data-cleaner.pg/execute!  conn [data-cleaner.sql/build-image-table]))
           res-devices (a/<!
-                      (data-cleaner.pg/execute!  conn [data-cleaner.sql/build-device-table]))
+                       (data-cleaner.pg/execute!  conn [device/build-table-query]))
+          res-metrics (a/<!
+                       (data-cleaner.pg/execute!  conn [metric/build-table-query]))
+          res-images (a/<!
+                      (data-cleaner.pg/execute!   conn [image/build-table-query]))
           res-users  (a/<!
-                      (data-cleaner.pg/execute!  conn [data-cleaner.sql/build-user-table]))
+                      (data-cleaner.pg/execute!   conn [user/build-table-query]))
           res-owners (a/<!
-                      (data-cleaner.pg/execute!  conn [data-cleaner.sql/build-owner-table]))
+                      (data-cleaner.pg/execute!   conn [owner/build-table-query]))
           res (clj->js [res-metrics res-images res-devices res-users res-owners])]
       (done res))))
 
 
-
-(def insert-image-query
-"
-  INSERT INTO metric(md5, device_num_id, user_id, path, created_on)
-  VALUES($1,$2,$3,$4,$5) RETURNING *
-")
-
-(defn insert-image
-  [db {md5 :image/md5
-        iot-num-id :device/iot-num-id
-        user-id  :user/id
-        path     :image/path
-        created-on :image/created-on :as image-row}]
-    (pg/insert!
-     db
-     insert-image-query
-     [md5
-      iot-num-id
-      user-id
-      path
-      created-on]))
-
-(s/fdef build-image
-  :args (s/cat :md5 :image/md5
-               :device-num-id :device/iot-num-id
-               :user-id :user/id
-               :path :image/path
-               :created-on :image/created-on)
-  :ret :grownome/image)
-
-(defn build-image
-  [md5 device-num-id user-id path created-on]
-  {:image/md5           md5
-   :device/iot-num-id device-num-id
-   :user/id       user-id
-   :image/path          path
-   :image/created-on    created-on})
-
-
-(def insert-metric-query
-"
-  INSERT INTO metric(device_registry_id, device_num_id, core_temp_max, core_temp_main, humidity, dewpoint, temperature, timestamp)
-  VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
-")
-
-(defn insert-metric
-  [db {:keys [device-registry-id
-              device-num-id
-              core-temp-max
-              core-temp-main
-              humidity
-              dewpoint
-              temperature
-              timestamp] :as metric-row}]
-  (if (not (or core-temp-max core-temp-main humidity dewpoint temperature))
-    (error ["Missing any metrics " metric-row])
-    (pg/insert!
-     db
-     insert-metric-query
-     [device-registry-id
-      device-num-id
-      core-temp-max
-      core-temp-main
-      humidity
-      dewpoint
-      temperature
-      timestamp])))
-
-(defn build-metric
-  [metric-name metric device-registry-id device-num-id]
-  {(keyword metric-name) metric
-   :device-registry-id device-registry-id
-   :device-num-id      device-num-id
-   :timestamp          (js/Date.)})
-
-(def insert-device-query
-  "
-  INSERT INTO
-  device(id,iot_num_id,name,resin_name,short_link)
-  VALUES($1,$2,$3,$4,$5)
-  RETURNING *
-  ")
-
-(defn insert-device
-  [db {md5 :image/md5
-       iot-num-id :device/iot-num-id
-       user-id  :user/id
-       path     :image/path
-       created-on :image/created-on :as metric-row}]
-  (pg/insert! db
-              insert-device-query
-              [md5
-               iot-num-id
-               user-id
-               path
-               created-on]))
 
