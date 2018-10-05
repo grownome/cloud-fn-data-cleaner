@@ -62,7 +62,6 @@
 
 
 (def example-image
-
   {"imageId" "fdba2a29316fbe1eebf5b1fbc7b8a71d",
    "deviceNumId" "2538009072846140",
    "imagePartUrl" "/parts/2538009072846140/1_fdba2a29316fbe1eebf5b1fbc7b8a71d.base64",
@@ -89,6 +88,8 @@
         device-id       (get a-part "deviceNumId")
         ; As well as the image id
         image-id        (get a-part "imageId")
+        ; Grab the image timestamp
+        timestamp       (get a-part "timestamp")
         ; then grab all the urls
         part-urls       (mapv #(get % "imagePartUrl") clj-parts)
         ; Downloads the parts from google cloud storage and save the name with them
@@ -107,6 +108,7 @@
         {:image-streams combined-stream
          :md5 image-id
          :urls part-urls
+         :timestamp timestamp
          :device-id device-id
          :image-id image-id
          :refs parts})
@@ -130,11 +132,11 @@
             (fn [resp]  url))))
 
 (defn -upload-image
-  [{:keys [device-id image-id image-streams md5] :as image-data}]
+  [{:keys [device-id image-id image-streams md5 timestamp] :as image-data}]
   (when image-data
     (let [stor     storage-client
           bucket   (.bucket stor "grownome.appspot.com")
-          file     (.file bucket (str "/images/" device-id "/" image-id ".jpg"))
+          file     (.file bucket (str "/images/" device-id "/" timestamp "-" image-id ".jpg"))
           ;somewhere we are dopping data so this is left commeted out
           ;metadata #js {"md5Hash" md5}
           writeable (.createWriteStream file)]
