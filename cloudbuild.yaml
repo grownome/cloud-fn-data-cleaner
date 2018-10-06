@@ -4,6 +4,6 @@ steps:
   - name: 'gcr.io/grownome/shadow-cljs'
     args: ['compile', 'test']
   - name: 'gcr.io/grownome/postgres-node'
-    args: ['node', 'local/node-tests.js']
+    args: ['postgres&','node', 'local/node-tests.js']
 
 
