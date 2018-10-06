@@ -18,6 +18,12 @@
 
  :builds
  {
+  :ci
+           {:target    :node-test
+            :output-to "local/node-tests-ci.js"
+            :ns-regexp "-spec$"
+            :autorun   false}
+ 
   :test
            {:target    :node-test
             :output-to "local/node-tests.js"

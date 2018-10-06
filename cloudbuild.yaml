@@ -2,7 +2,7 @@ steps:
   - name: 'gcr.io/cloud-builders/npm'
     args: ['install']
   - name: 'gcr.io/grownome/shadow-cljs'
-    args: ['compile', 'test']
+    args: ['compile', 'ci']
   - name: 'gcr.io/grownome/docker-compose'
     args: ['run','srv']
 
