@@ -3,7 +3,7 @@ steps:
     args: ['install']
   - name: 'gcr.io/grownome/shadow-cljs'
     args: ['compile', 'test']
-  - name: 'gcr.io/grownome/postgres-node'
-    args: ['postgres&','node', 'local/node-tests.js']
+  - name: 'gcr.io/cloud-builders/docker-compose'
+    args: ['run','srv']
 
 
