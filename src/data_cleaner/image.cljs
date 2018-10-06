@@ -12,13 +12,18 @@
 
 (def build-table-query
   "
-CREATE TABLE image(
+  CREATE TABLE IF NOT EXISTS image(
   md5              UUID           PRIMARY KEY,
   device_id        INTEGER        REFERENCES device(id),
   path             VARCHAR (355)  NOT NULL,
   created_on       TIMESTAMP      NOT NULL
   );
 ")
+
+(def drop-table-query
+  "
+  DROP TABLE image CASCADE;
+  ")
 
 (s/def :image/md5 string?)
 (s/def :image/path string?)
@@ -37,11 +42,11 @@ CREATE TABLE image(
 ")
 
 (s/fdef build
-  :args (s/cat :md5 :image/md5
+  :args (s/cat :md5           :image/md5
                :device-num-id :device/id
-               :user-id :user/id
-               :path :image/path
-               :created-on :image/created-on)
+               :user-id       :user/id
+               :path          :image/path
+               :created-on    :image/created-on)
   :ret :grownome/image)
 
 (defn build
@@ -62,10 +67,23 @@ CREATE TABLE image(
        created-on :image/created-on :as image-row}]
   (pg/insert!
    db
-   insert-image-query
+   insert-query
    [md5
     device-id
     path
     created-on]))
 
+(def images-by-device
+  "
+  SELECT *
+  FROM image
+  WHERE device_id = $1
+  ;")
 
+(def images-by-device-with-limit
+  "
+  SELECT *
+  FROM image
+  WHERE device_id = $1
+  LIMIT $2
+  ")

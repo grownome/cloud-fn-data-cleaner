@@ -10,11 +10,16 @@
 
 (st/instrument)
 
+(def drop-table-query
+  "
+  DROP TABLE owner CASCADE;
+  ")
+
 (def build-table-query
   "
-  CREATE TABLE owner(
+  CREATE TABLE IF NOT EXISTS owner(
   id                  SERIAL         PRIMARY KEY,
-  user_id             VARCHAR (50)   REFERENCES user(id),
+  user_id             VARCHAR (50)   REFERENCES user_account(id),
   device_id           INTEGER        REFERENCES device(id),
   created_on          TIMESTAMP      NOT NULL
   );
@@ -38,7 +43,7 @@
 (s/fdef build
   :args (s/cat :device-id :device/id
                :user-id    :user/id)
-  :ret :grownome/device)
+  :ret :grownome/owner)
 
 (defn build
   [device-id  user-id]

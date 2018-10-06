@@ -7,7 +7,7 @@
    [data-cleaner.user :as  user]
    [data-cleaner.metric :as metric]
    [data-cleaner.device :as device]
-   [data-cleaner.device :as image]
+   [data-cleaner.image :as image]
    [cljs.spec.alpha :as s]
    [orchestra-cljs.spec.test :as st]
    [cljs.core.async :as a]
@@ -39,24 +39,49 @@
 
 (defonce db (pg/open-pool (get-config)))
 
-(defn init-tabels
+(defn init-tables
   "Build the grownome database"
   [done]
   (go
     (let [c (data-cleaner.pg/open-db (data-cleaner.sql/get-config))
           conn (a/<! (data-cleaner.pg/connect! c))
           res-devices (a/<!
-                       (data-cleaner.pg/execute!  conn [device/build-table-query]))
+                       (data-cleaner.pg/execute!  c [device/build-table-query]))
           res-metrics (a/<!
-                       (data-cleaner.pg/execute!  conn [metric/build-table-query]))
-          res-images (a/<!
-                      (data-cleaner.pg/execute!   conn [image/build-table-query]))
-          res-users  (a/<!
-                      (data-cleaner.pg/execute!   conn [user/build-table-query]))
-          res-owners (a/<!
-                      (data-cleaner.pg/execute!   conn [owner/build-table-query]))
+                       (data-cleaner.pg/execute!  c [metric/build-table-query]))
+          res-images  (a/<!
+                       (data-cleaner.pg/execute!  c [image/build-table-query]))
+          res-users   (a/<!
+                       (data-cleaner.pg/execute!  c [user/build-table-query]))
+          res-owners  (a/<!
+                       (data-cleaner.pg/execute!  c [owner/build-table-query]))
           res (clj->js [res-metrics res-images res-devices res-users res-owners])]
       (done res))))
 
 
+(defn drop-tables
+  [done]
+  (go
+    (let [c (data-cleaner.pg/open-db (data-cleaner.sql/get-config))
+          conn (a/<! (data-cleaner.pg/connect! c))
+          res-owners  (a/<!
+                       (data-cleaner.pg/execute!  c [owner/drop-table-query]))
+          res-metrics (a/<!
+                       (data-cleaner.pg/execute!  c [metric/drop-table-query]))
+          res-images  (a/<!
+                       (data-cleaner.pg/execute!  c [image/drop-table-query]))
+          res-devices (a/<!
+                       (data-cleaner.pg/execute!  c [device/drop-table-query]))
+          res-users   (a/<!
+                       (data-cleaner.pg/execute!  c [user/drop-table-query]))
+
+          res (clj->js [
+                        res-metrics
+                        res-images
+                        res-devices res-users
+                                        ; res-owners
+                        ])]
+      (done res))
+    )
+  )
 

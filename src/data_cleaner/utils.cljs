@@ -6,6 +6,12 @@
   (into {} (for [k (js-keys x)]
              [k (aget x k)])))
 
+
+(defn one-res
+  [result]
+  (-> result .-rows first js->clj vals))
+
+
 (defn env
   "Returns current env vars as a Clojure map."
   []

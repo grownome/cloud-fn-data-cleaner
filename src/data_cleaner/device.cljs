@@ -13,15 +13,19 @@
 
 (def build-table-query
   "
-CREATE TABLE device(
-  id             INTEGER        NOT NULL,
+  CREATE TABLE IF NOT EXISTS device (
+  id             INTEGER        PRIMARY KEY,
   name           text           NOT NULL,
   resin_name     text           NOT NULL,
   short_link     text           NOT NULL,
   created_on     TIMESTAMP      NOT NULL
-  );
+  ) ;
 ")
 
+(def drop-table-query
+  "
+  DROP TABLE device CASCADE;
+  ")
 
 (s/def :device/id         integer?)
 (s/def :device/name       string?)

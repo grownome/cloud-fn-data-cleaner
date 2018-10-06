@@ -91,6 +91,14 @@
   ([db sql f]
    (execute! db [sql] f)))
 
+(defn query-with-param!
+  "Executes an sql query with parameters and returns result rows."
+  ([db sql data]
+   (result-chan query-with-param! db sql data))
+  ([db sql data f]
+   (execute! db (flatten [sql data]) f)))
+
+
  (defn insert!
   "Executes an sql insert and returns update count and returned rows.
    Spec format is

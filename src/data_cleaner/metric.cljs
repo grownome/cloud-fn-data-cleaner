@@ -13,7 +13,7 @@
 
 (def build-table-query
 "
-CREATE TABLE metric(
+  CREATE TABLE IF NOT EXISTS metric(
   device_registry_id	      VARCHAR(50) NOT NULL,
   device_id	                INTEGER     REFERENCES device(id),
   core_temp_max	            NUMERIC,
@@ -25,6 +25,9 @@ CREATE TABLE metric(
   );
 ")
 
+(def drop-table-query
+  "DROP TABLE metric CASCADE;"
+  )
 (s/def :metric/timestamp inst?)
 (s/def :metric/core-temp-max  (s/and float? #(< % 300)))
 (s/def :metric/core-temp-main (s/and float? #(< % 300)))

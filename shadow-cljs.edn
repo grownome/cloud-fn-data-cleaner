@@ -18,6 +18,11 @@
 
  :builds
  {
+  :test
+           {:target    :node-test
+            :output-to "local/node-tests.js"
+            :ns-regexp "-spec$"
+            :autorun   true}
   :dev {
         :optimizations :none
         :main data-cleaner.core
@@ -28,13 +33,12 @@
         :exports {:subscribe data-cleaner.core/subscribe
                   :make_image data-cleaner.core/assemble-images}
         :target :node-library }
-  :prod
-  {:optimizations :none
-   :main data-cleaner.core
-   :asset-path "release/js/compiled/prod"
-   :output-to "release/index.js"
-   :output-dir "release/prod"
-   :source-map "release/index.js.map"
-   :exports {:subscribe data-cleaner.core/subscribe
+  :prod {:optimizations :none
+         :main data-cleaner.core
+         :asset-path "release/js/compiled/prod"
+         :output-to "release/index.js"
+         :output-dir "release/prod"
+         :source-map "release/index.js.map"
+         :exports {:subscribe data-cleaner.core/subscribe
              :make_image data-cleaner.core/assemble-images}
-   :target :node-library }}}
+         :target :node-library }}}
