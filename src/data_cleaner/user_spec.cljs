@@ -19,14 +19,7 @@
 
 (defonce user-args [(str (rand-int 1000000)) "eric" "eric@gmail.com" (js/Date.)] )
 
-(t/deftest can-connect
-  (t/async
-   done
-   (a/go
-     (t/is (any? (a/<! (pg/connect!  (pg/open-db (sql/get-config))))))
-     )
-   )
-  )
+
 (t/deftest can-add-and-get-user
   (t/async
    done
