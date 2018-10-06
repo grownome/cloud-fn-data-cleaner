@@ -3,6 +3,7 @@
 /checkouts
 /release
 /node_modules
+/local
 pom.xml
 pom.xml.asc
 .shadow-cljs
