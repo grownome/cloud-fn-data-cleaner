@@ -17,7 +17,7 @@ services:
     working_dir: /app
     ports:
       - "3000:3000"
-    entrypoint: node local/node-tests-ci.js
+    entrypoint: ./start-test.sh
     environment:
         SQL_USER: myuser
         SQL_PASSWORD: mypass
