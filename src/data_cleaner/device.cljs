@@ -29,6 +29,7 @@
 
 (s/def :device/id         integer?)
 (s/def :device/name       string?)
+(s/def :device/registry-id       string?)
 (s/def :device/resin-name string?)
 (s/def :device/short-link uri?)
 (s/def :device/created-on inst?)

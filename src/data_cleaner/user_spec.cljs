@@ -19,7 +19,6 @@
 
 (defonce user-args [(str (rand-int 1000000)) "eric" "eric@gmail.com" (js/Date.)] )
 
-
 (t/deftest can-add-and-get-user
   (t/async
    done

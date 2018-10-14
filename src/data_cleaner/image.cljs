@@ -37,14 +37,13 @@
 
 (def insert-query
   "
-  INSERT INTO image(md5, device_id, path, created_on)
+  INSERT INTO images(md5, device_id, path, created_on)
   VALUES($1,$2,$3,$4) RETURNING *
 ")
 
 (s/fdef build
   :args (s/cat :md5           :image/md5
                :device-num-id :device/id
-               :user-id       :user/id
                :path          :image/path
                :created-on    :image/created-on)
   :ret :grownome/image)
@@ -76,14 +75,14 @@
 (def images-by-device
   "
   SELECT *
-  FROM image
+  FROM images
   WHERE device_id = $1
   ;")
 
 (def images-by-device-with-limit
   "
   SELECT *
-  FROM image
+  FROM images
   WHERE device_id = $1
   LIMIT $2
   ")

@@ -11,6 +11,9 @@
             [goog.crypt.Md5 :as MD5]
             [goog.crypt.base64 :as b64]
             [goog.crypt :as gcrypt]
+            [data-cleaner.sql :as sql]
+            [data-cleaner.pg :as pg]
+            [data-cleaner.image :as img]
             [cljs.spec.gen.alpha :as g]
             [cljs.spec.alpha :as spec]
             [taoensso.timbre :as timbre
@@ -138,8 +141,8 @@
           bucket   (.bucket stor "grownome.appspot.com")
           file     (.file bucket (str "/images/" device-id "/" timestamp "-" image-id ".jpg"))
           ;somewhere we are dopping data so this is left commeted out
-          ;metadata #js {"md5Hash" md5}
-          writeable (.createWriteStream file)]
+          metadata #js {"contentType" "image/jpeg"}
+          writeable (.createWriteStream file metadata)]
       (p/promise
        (fn [resolve reject]
          (.pipe image-streams writeable)
@@ -171,15 +174,32 @@
              bucket-deletes (p/all (mapv delete-bucket urls))]
          (p/all [firestore-deletes bucket-deletes]))))))
 
+(defn add-to-user-db
+  [prom]
+  (p/then prom
+          (fn [{:keys [device-id timestamp image-id refs urls] :as image-info}]
+            (when image-info
+              (p/promise
+               (fn [resolve reject]
+                 (a/go
+                   (let [path (str "gs://grownome.appspot.com" "/images/" device-id "/" timestamp "-" image-id ".jpg")
+                         img-data (img/build image-id (js/parseInt device-id) path (js/Date. (*  timestamp)))
+                         c    (pg/open-db (sql/get-config))
+                         conn (a/<! (pg/connect! c))
+                         ]
+                     (a/<! (img/insert c img-data))
+                     (resolve image-info)))))))))
+
 (defn images-chan
   [fs cursor]
   (let [recycle-chan (a/chan 10)
 
-        img-chan (a/chan 50 (comp
+        img-chan (a/chan 20 (comp
                              (partition-by #(aget (.data %) "imageId"))
                              (map  #(->> %
                                          (reassemble-image recycle-chan)
                                          (upload-image)
+                                         (add-to-user-db)
                                          (delete-raw fs)))))
         next-chan (a/chan)
         mixxer (a/mix img-chan)]

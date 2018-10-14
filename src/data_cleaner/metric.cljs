@@ -44,8 +44,8 @@
 
 (def insert-query
 "
-  INSERT INTO metric(device_registry_id, device_id, core_temp_max, core_temp_main, humidity, temperature, timestamp)
-  VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *
+  INSERT INTO metrics(device_registry_id, device_id, core_temp_max, core_temp_main, humidity, temperature, timestamp, metric_name)
+  VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
 ")
 
 
@@ -54,9 +54,10 @@
 (s/fdef build-metric
   :args (s/cat :metric-name :metric/name
                :metric float?
-               :device-registry-id :device/registry-id
-               :device-num-id :device/id
-               :timestamp (s/or :nil nil? :value inst?))
+               :device-registry :device/registry-id
+               :device-id :device/id
+               :timestamp (s/or :nil nil? :value inst?)
+               )
   :ret :grownome/metric)
 
 (defn build-metric
@@ -66,6 +67,7 @@
     {metric-key metric
      :device/registry-id device-registry-id
      :device/id          device-id
+     :metric/name        metric-name
      :metric/timestamp   time}))
 
 
@@ -80,6 +82,7 @@
        humidity           :metric/humidity
        temperature        :metric/temperature
        timestamp          :metric/timestamp
+       metric-name        :metric/name
        :as metric-row}]
   (if (not (or core-temp-max core-temp-main humidity temperature))
     (error ["Missing any metrics " metric-row])
@@ -92,7 +95,9 @@
       core-temp-main
       humidity
       temperature
-      timestamp])))
+      timestamp
+      metric-name
+      ])))
 
 
 

@@ -7,6 +7,8 @@
             ["@google-cloud/bigquery" :as bq]
             [data-cleaner.images :as i]
             [data-cleaner.sql :as sql]
+            [data-cleaner.pg :as pg]
+            [data-cleaner.metric :as metric]
             [promesa.core :as p]
             [goog.crypt.base64 :as b64]
             [taoensso.timbre :as timbre
@@ -94,6 +96,19 @@
                   access-key (get device "accessKey")]
               [bucket-key access-key]))))
 
+(defn put-metric-promise
+  [metric-name metric reg-id device-id timestamp]
+  (p/promise
+   (fn [resolve reject]
+     (a/go
+       (let [metric-data
+             (metric/build-metric metric-name metric reg-id device-id timestamp)
+             c    (pg/open-db (sql/get-config))
+             conn (a/<! (pg/connect! c))
+             ]
+         (a/<! (metric/insert c metric-data))
+         (resolve metric-data)))))
+  )
 (def subfolder-name-to-bq-name
   {"core-temp-max" "coreTempMax"
    "core-temp-main" "coreTempMain"
@@ -147,10 +162,10 @@
                   (fn [_]
                     (let [attributes
                           #js
-                          {"imagePartUrl"  upload-url
-                           "imageId"        image-hash
-                           "imageMaxIndex" max-idx
-                           "imageIndex"     idx
+                          {"imagePartUrl"    upload-url
+                           "imageId"         image-hash
+                           "imageMaxIndex"   max-idx
+                           "imageIndex"      idx
                            "deviceNumId"     device-num-id
                            "subFolder"       subfolder
                            "timestamp"       (js/Date.now)}]
@@ -171,15 +186,15 @@
               device-data-promise   (get-device-promise fs device-num-id)
               ;clean up the value what ever it is
               clean-value (clean-value name (js/parseFloat value))]
-          ;send the metric to inital state
+              ;send the metric to inital state
           (-> (p/then
-               ;first get the keys for the initial-state bucket from fs
+              ;first get the keys for the initial-state bucket from fs
                (get-initial-state-promise device-data-promise)
-               ;then
-                      (fn [[bucket-key access-key]]
-                        ;push the metric to intial state
-                        (let [b (is/bucket bucket-key access-key)]
-                          (push-inital-state b metric-name clean-value (.-timestamp event)))))
+              ;then
+               (fn [[bucket-key access-key]]
+                 ;push the metric to intial state
+                 (let [b (is/bucket bucket-key access-key)]
+                   (push-inital-state b metric-name clean-value (.-timestamp event)))))
               ;catch any errors
               (p/catch (fn [err]
                          (error err))))
@@ -188,8 +203,14 @@
           (js-delete attributes "data")
           (aset attributes "deviceNumId" device-num-id)
           (aset attributes "user" user)
-          (aset attributes "timestamp" (bq/timestamp (js/Date.now))))
-          (bq-insert attributes)))))
+          (aset attributes "timestamp" (bq/timestamp (js/Date.now)))
+          (p/all [(put-metric-promise metric-name
+                                      clean-value
+                                      reg
+                                      device-num-id
+                                      (js/Date.))
+                  (bq-insert attributes)]))))))
+
 
 (defn assemble-images
   [event context done]

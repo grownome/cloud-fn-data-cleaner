@@ -25,19 +25,19 @@
         ;check to see if this is running in the cloud
         prod  (= "production" (get env "NODE_ENV"))
         ;either way we need these parameters
-        base-config
-        {:username (or (get env "SQL_USER") "postgres" )
-         :password (or (get env "SQL_PASSWORD") "")
-         :hostname (or (get env "SQL_HOST") "localhost")
-         :database (or (get env "SQL_NAME") "grownome")}]
+        base-config {:username (or (get env "SQL_USER") "postgres" )
+                     :password (or (get env "SQL_PASSWORD") "")
+                     :hostname (or (get env "SQL_HOST") "localhost")
+                     :database (or (get env "SQL_NAME") "grownome")}]
     ;if it's prod add the socket-path so that it can get to the db socket
     (if prod
-      (assoc base-config
-             :socket-path
-             (str "/cloudsql/" (get env "INSTANCE_CONNECTION_NAME")))
+      (-> base-config
+       (assoc :hostname
+              (str "/cloudsql/" (get env "INSTANCE_CONNECTION_NAME")))
+       (assoc :max 1))
       base-config)))
 
-(defonce db (pg/open-pool (get-config)))
+;(defonce db (pg/open-pool (get-config)))
 
 (defn init-tables
   "Build the grownome database"
