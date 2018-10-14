@@ -28,8 +28,6 @@
     (when (nil? (param config))
       (errorf (str param " is required"))
       (throw (new js/Error (str param " is required")))))
-
-  (info config)
   #js {"host"     hostname
        "max"      max
        "socketPath" socket-path

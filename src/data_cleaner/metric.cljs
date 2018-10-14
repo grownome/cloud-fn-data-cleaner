@@ -56,8 +56,7 @@
                :metric float?
                :device-registry :device/registry-id
                :device-id :device/id
-               :timestamp (s/or :nil nil? :value inst?)
-               )
+               :timestamp (s/or :nil nil? :value inst?))
   :ret :grownome/metric)
 
 (defn build-metric
