@@ -193,8 +193,9 @@
               ;then
                (fn [[bucket-key access-key]]
                  ;push the metric to intial state
-                 (let [b (is/bucket bucket-key access-key)]
-                   (push-inital-state b metric-name clean-value (.-timestamp event)))))
+                 (when (and bucket-key access-key)
+                   (let [b (is/bucket bucket-key access-key)]
+                     (push-inital-state b metric-name clean-value (.-timestamp event))))))
               ;catch any errors
               (p/catch (fn [err]
                          (error err))))
