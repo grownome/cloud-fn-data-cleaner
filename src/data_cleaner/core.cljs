@@ -21,6 +21,11 @@
 
 (defonce bq-client  (new bq #js {:projectId "grownome"}))
 
+(defn dev-prefix
+  []
+  (let [env (utils/env)]
+        (or (get env "DEV_PREFIX"))))
+
 (defn bq-insert
   ([dataset table data]
    (info "inserting bq row")
@@ -74,7 +79,7 @@
   [fs num-id]
   (info num-id)
   (let [device-info (-> fs
-                        (.collection "devices")
+                        (.collection (str (dev-prefix) "devices"))
                         (.where "deviceNumId" "==" num-id)
                         (.limit 1)
                         (.get))
@@ -91,7 +96,7 @@
 (defn get-initial-state-promise
   [device-promise]
   (p/then device-promise
-          (fn [device ]
+          (fn [device]
             (let [bucket-key (get device "bucketKey")
                   access-key (get device "accessKey")]
               [bucket-key access-key]))))
@@ -149,7 +154,10 @@
                                              (b64/decodeStringToUint8Array
                                               (b64/decodeString
                                                (.-data event))))
-              images-ref                    (-> fs (.collection "images"))
+              images-ref                    (-> fs (.collection
+                                                    (str
+                                                     (dev-prefix)
+                                                     "images")))
 
               upload-data                   {:device-id  (get-in clj-event
                                                                  ["attributes"
@@ -210,7 +218,8 @@
                                       reg
                                       device-num-id
                                       (js/Date.))
-                  (bq-insert attributes)]))))))
+                  (when (not-empty (dev-prefix))
+                    (bq-insert attributes))]))))))
 
 
 (defn assemble-images

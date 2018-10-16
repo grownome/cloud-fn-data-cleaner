@@ -26,6 +26,12 @@
     (.update digester bytes-in)
     (.digest digester)))
 
+(defn dev-prefix
+  []
+  (let [env (utils/env)]
+    (or (get env "DEV_PREFIX"))))
+
+
 (defonce storage-client (new st #js {:projectId "grownome"}))
 
 (spec/fdef md5
@@ -41,14 +47,14 @@
 (defn images-by-id
   ([fs start-at]
    (-> fs
-       (.collection "images") ; It's silly that we called the colletions with raw images images
+       (.collection (str (dev-prefix) "images")) ; It's silly that we called the colletions with raw images images
        (.orderBy "imageId")
        (.startAfter start-at)
        (.limit 200)))
   ([fs]
    "gets a cursor that returns all of the unprocessed images firestore"
    (-> fs
-       (.collection "images") ; It's silly that we called the colletions with raw images images
+       (.collection (str (dev-prefix) "images")) ; It's silly that we called the colletions with raw images images
        (.orderBy "imageId")
        (.limit 200)))) ; order it by the image id so they are always groupd together
 
@@ -59,7 +65,7 @@
 (defn  stream-part
   [url]
   (let [stor   storage-client
-        bucket (.bucket stor "grownome.appspot.com")
+        bucket (.bucket stor (str (dev-prefix) "grownome.appspot.com"))
         file   (.file bucket url)]
      (.createReadStream file)))
 
@@ -128,7 +134,7 @@
 (defn upload-image-part
   [{:keys [device-id image-id part-id image-part] :as image-data}]
   (let [stor     (.storage fa)
-        bucket   (.bucket stor "grownome.appspot.com")
+        bucket   (.bucket stor (str (dev-prefix) "grownome.appspot.com"))
         url      (part-url image-data)
         file     (.file bucket url)]
     (p/then (.save file image-part)
@@ -138,7 +144,7 @@
   [{:keys [device-id image-id image-streams md5 timestamp] :as image-data}]
   (when image-data
     (let [stor     storage-client
-          bucket   (.bucket stor "grownome.appspot.com")
+          bucket   (.bucket stor (str (dev-prefix) "grownome.appspot.com"))
           file     (.file bucket (str "/images/" device-id "/" timestamp "-" image-id ".jpg"))
           ;somewhere we are dopping data so this is left commeted out
           metadata #js {"contentType" "image/jpeg"}
@@ -156,7 +162,7 @@
 (defn delete-bucket
   [url]
   (let [stor   storage-client
-        bucket (.bucket stor "grownome.appspot.com")
+        bucket (.bucket stor (str (dev-prefix) "grownome.appspot.com"))
         file   (.file bucket url)]
     (.delete file)))
 
@@ -182,7 +188,7 @@
               (p/promise
                (fn [resolve reject]
                  (a/go
-                   (let [path (str "gs://grownome.appspot.com" "/images/" device-id "/" timestamp "-" image-id ".jpg")
+                   (let [path (str "gs://" (dev-prefix) "grownome.appspot.com" "/images/" device-id "/" timestamp "-" image-id ".jpg")
                          img-data (img/build image-id (js/parseInt device-id) path (js/Date. (*  timestamp)))
                          c    (pg/open-db (sql/get-config))
                          conn (a/<! (pg/connect! c))
@@ -193,7 +199,6 @@
 (defn images-chan
   [fs cursor]
   (let [recycle-chan (a/chan 10)
-
         img-chan (a/chan 20 (comp
                              (partition-by #(aget (.data %) "imageId"))
                              (map  #(->> %
@@ -202,7 +207,7 @@
                                          (add-to-user-db)
                                          (delete-raw fs)))))
         next-chan (a/chan)
-        mixxer (a/mix img-chan)]
+        mixxer    (a/mix img-chan)]
     (a/admix mixxer recycle-chan)
     (a/go-loop [c cursor]
       (p/then (.get c)
@@ -213,15 +218,15 @@
                     (if (> (count clj-imgs) 0)
                       (let [l (.data (last clj-imgs))]
                         (info "trying to put image on chan")
-                        (doall (map #(a/put! img-chan %) clj-imgs))
-                        (a/>! next-chan (spy (js->clj l))))
+                        (doall (map #(a/put! img-chan %) clj-imgs)))
                       (do
                         (info "closing channels")
                         (a/close! img-chan)
                         (a/close! next-chan)))))))
       (when-let [next (a/<! next-chan)]
-        (info "getting next page")
-        (recur  (images-by-id fs (get next "imageId")))))
+        (when (not (nil? next))
+          (info "getting next page")
+          (recur  (images-by-id fs (get next "imageId"))))))
     img-chan))
 
 (defn assemble-images
