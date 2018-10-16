@@ -9,6 +9,7 @@
             [data-cleaner.sql :as sql]
             [data-cleaner.pg :as pg]
             [data-cleaner.metric :as metric]
+            [data-cleaner.utils :as utils]
             [promesa.core :as p]
             [goog.crypt.base64 :as b64]
             [taoensso.timbre :as timbre
@@ -24,7 +25,7 @@
 (defn dev-prefix
   []
   (let [env (utils/env)]
-        (or (get env "DEV_PREFIX"))))
+        (or (get env "DEV_PREFIX") "")))
 
 (defn bq-insert
   ([dataset table data]
@@ -218,7 +219,7 @@
                                       reg
                                       device-num-id
                                       (js/Date.))
-                  (when (not-empty (dev-prefix))
+                  (when (empty? (dev-prefix))
                     (bq-insert attributes))]))))))
 
 
