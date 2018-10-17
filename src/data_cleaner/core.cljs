@@ -137,6 +137,7 @@
   debug
   "
   [event context]
+  (debug (dev-prefix))
   (let [pubsub-message  event
         clj-event       (js->clj event)
         attributes      (aget event "attributes")
