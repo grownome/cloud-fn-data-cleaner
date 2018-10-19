@@ -9,6 +9,7 @@
             [data-cleaner.sql :as sql]
             [data-cleaner.pg :as pg]
             [data-cleaner.metric :as metric]
+            [data-cleaner.utils :as utils]
             [promesa.core :as p]
             [goog.crypt.base64 :as b64]
             [taoensso.timbre :as timbre
@@ -20,6 +21,11 @@
                                      :databaseURL "https://grownome.firebaseio.com"}))
 
 (defonce bq-client  (new bq #js {:projectId "grownome"}))
+
+(defn dev-prefix
+  []
+  (let [env (utils/env)]
+        (or (get env "DEV_PREFIX") "")))
 
 (defn bq-insert
   ([dataset table data]
@@ -74,7 +80,7 @@
   [fs num-id]
   (info num-id)
   (let [device-info (-> fs
-                        (.collection "devices")
+                        (.collection (str (dev-prefix) "devices"))
                         (.where "deviceNumId" "==" num-id)
                         (.limit 1)
                         (.get))
@@ -91,7 +97,7 @@
 (defn get-initial-state-promise
   [device-promise]
   (p/then device-promise
-          (fn [device ]
+          (fn [device]
             (let [bucket-key (get device "bucketKey")
                   access-key (get device "accessKey")]
               [bucket-key access-key]))))
@@ -103,10 +109,9 @@
      (a/go
        (let [metric-data
              (metric/build-metric metric-name metric reg-id device-id timestamp)
-             c    (pg/open-db (sql/get-config))
-             conn (a/<! (pg/connect! c))
              ]
-         (a/<! (metric/insert c metric-data))
+         (a/<! (metric/insert sql/db metric-data))
+         (pg/close-db! sql/db)
          (resolve metric-data)))))
   )
 (def subfolder-name-to-bq-name
@@ -131,6 +136,7 @@
   debug
   "
   [event context]
+  (debug (dev-prefix))
   (let [pubsub-message  event
         clj-event       (js->clj event)
         attributes      (aget event "attributes")
@@ -149,7 +155,10 @@
                                              (b64/decodeStringToUint8Array
                                               (b64/decodeString
                                                (.-data event))))
-              images-ref                    (-> fs (.collection "images"))
+              images-ref                    (-> fs (.collection
+                                                    (str
+                                                     (dev-prefix)
+                                                     "images")))
 
               upload-data                   {:device-id  (get-in clj-event
                                                                  ["attributes"
@@ -210,7 +219,8 @@
                                       reg
                                       device-num-id
                                       (js/Date.))
-                  (bq-insert attributes)]))))))
+                  (when (empty? (dev-prefix))
+                    (bq-insert attributes))]))))))
 
 
 (defn assemble-images
