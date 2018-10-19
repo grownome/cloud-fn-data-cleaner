@@ -198,10 +198,8 @@
                  (a/go
                    (let [path (str "gs://" (or (bucket-name)  "grownome.appspot.com") "/images/" device-id "/" timestamp "-" image-id ".jpg")
                          img-data (img/build image-id (js/parseInt device-id) path (js/Date. (*  timestamp)))
-                         c    (pg/open-db (sql/get-config))
-                         conn (a/<! (pg/connect! c))
                          ]
-                     (a/<! (img/insert c img-data))
+                     (a/<! (img/insert sql/db img-data))
                      (resolve image-info)))))))))
 
 (defn images-chan
@@ -247,8 +245,13 @@
       ;When there are no more images the channel will close and return nil
       (if item
         (recur (a/<! i-chan) (conj accum item))
-        (p/then (p/all accum)
-                (fn [res]
-                  (info res)
-                  (info "I think i'm done")
-                  (done res)))))))
+        (p/catch (p/then (p/all accum)
+                         (fn [res]
+                           (pg/close! sql/db)
+                           (info res)
+                           (info "I think i'm done")
+                           (done res)))
+            (fn [err]
+              (pg/close! sql/db))
+
+            )))))

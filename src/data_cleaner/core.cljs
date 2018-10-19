@@ -109,10 +109,9 @@
      (a/go
        (let [metric-data
              (metric/build-metric metric-name metric reg-id device-id timestamp)
-             c    (pg/open-db (sql/get-config))
-             conn (a/<! (pg/connect! c))
              ]
-         (a/<! (metric/insert c metric-data))
+         (a/<! (metric/insert sql/db metric-data))
+         (pg/close! sql/db)
          (resolve metric-data)))))
   )
 (def subfolder-name-to-bq-name

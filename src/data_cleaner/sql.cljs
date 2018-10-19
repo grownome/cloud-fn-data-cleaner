@@ -37,7 +37,8 @@
        (assoc :max 1))
       base-config)))
 
-;(defonce db (pg/open-pool (get-config)))
+(defonce db (pg/open-db (get-config)))
+(a/go (a/<! (pg/connect! db)))
 
 (defn init-tables
   "Build the grownome database"
