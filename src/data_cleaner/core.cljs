@@ -111,7 +111,7 @@
              (metric/build-metric metric-name metric reg-id device-id timestamp)
              ]
          (a/<! (metric/insert sql/db metric-data))
-         (pg/close! sql/db)
+         (pg/close-db! sql/db)
          (resolve metric-data)))))
   )
 (def subfolder-name-to-bq-name

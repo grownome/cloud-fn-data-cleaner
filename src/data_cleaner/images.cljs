@@ -247,11 +247,11 @@
         (recur (a/<! i-chan) (conj accum item))
         (p/catch (p/then (p/all accum)
                          (fn [res]
-                           (pg/close! sql/db)
+                           (pg/close-db! sql/db)
                            (info res)
                            (info "I think i'm done")
                            (done res)))
             (fn [err]
-              (pg/close! sql/db))
+              (pg/close-db! sql/db))
 
             )))))
