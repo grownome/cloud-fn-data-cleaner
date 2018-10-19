@@ -245,13 +245,8 @@
       ;When there are no more images the channel will close and return nil
       (if item
         (recur (a/<! i-chan) (conj accum item))
-        (p/catch (p/then (p/all accum)
+        (p/then (p/all accum)
                          (fn [res]
-                           (pg/close-db! sql/db)
                            (info res)
                            (info "I think i'm done")
-                           (done res)))
-            (fn [err]
-              (pg/close-db! sql/db))
-
-            )))))
+                           (done res)))))))
