@@ -30,12 +30,12 @@
 (defn dev-prefix
   []
   (let [env (utils/env)]
-    (or (get env "DEV_PREFIX") "")))
+    (or (get env "DEV_PREFIX") nil)))
 
 (defn bucket-name
   []
   (let [env (utils/env)]
-    (or (get env "BUCKET") "")))
+    (or (get env "BUCKET") nil)))
 
 
 
