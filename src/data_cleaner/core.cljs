@@ -45,11 +45,11 @@
 
 (defn cleanup-temp [value]
   (let [adjust (partial offset-temp-factor 0.2 -5) ]
-    (.toPrecision (adjust
-                    (+ (* value (/ 9 5)) 32)) 2) ))
+    (js/parseFloat (.toPrecision (adjust
+                                  (+ (* value (/ 9 5)) 32)) 3)) ))
 
 (defn cleanup-humidity  [value]
-  (.toPrecision value 2))
+  (js/parseFloat (.toPrecision value 3)))
 
 
 (defn clean-value [name value]
