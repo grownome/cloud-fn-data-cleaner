@@ -8,7 +8,6 @@
     "bluebird": "^3.5.1",
     "combined-stream2": "^1.1.2",
     "firebase-admin": "^6.0.0",
-    "initial-state": "^0.2.0",
     "pg": "^7.4.3",
     "source-map-support": "^0.5.9",
     "ws": "^6.0.0"
@@ -17,6 +16,5 @@
     "build": "shadow-cljs compile dev",
     "prod": "shadow-cljs compile prod",
     "ci": "node local/node-tests-ci.js"
-
   }
 }
