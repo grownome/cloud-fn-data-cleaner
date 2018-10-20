@@ -56,7 +56,8 @@
 
 (defn sql-error
   [& args]
-  (error args))
+  (error args)
+  (js/Error. args))
 
 (defn connect!
   ([db]

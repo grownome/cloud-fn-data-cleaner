@@ -136,6 +136,7 @@
         attributes      (aget event "attributes")
         subfolder       (get-in clj-event ["attributes" "subFolder"])
         device-num-id   (get-in clj-event ["attributes" "deviceNumId"])
+        published-time  (js/Date. (get-in clj-event ["attributes" "publishedTime"]))
         subparts        (s/split subfolder #"/")]
     (info (utils/env))
     (if (= (first subparts) "captures")
@@ -171,7 +172,7 @@
                            "imageIndex"      idx
                            "deviceNumId"     device-num-id
                            "subFolder"       subfolder
-                           "timestamp"       (js/Date.now)}]
+                           "timestamp"       published-time}]
                       (.add images-ref attributes))))))
       ;;; Is metrics
       (do
@@ -207,12 +208,12 @@
           (js-delete attributes "data")
           (aset attributes "deviceNumId" device-num-id)
           (aset attributes "user" user)
-          (aset attributes "timestamp" (bq/timestamp (js/Date.now)))
+          (aset attributes "timestamp" (bq/timestamp published-time))
           (p/all [(put-metric-promise metric-name
                                       clean-value
                                       reg
                                       device-num-id
-                                      (js/Date.))
+                                      published-time)
                   (when (empty? utils/dev-prefix)
                     (bq-insert attributes))]))))))
 
