@@ -136,7 +136,7 @@
         attributes      (aget event "attributes")
         subfolder       (get-in clj-event ["attributes" "subFolder"])
         device-num-id   (get-in clj-event ["attributes" "deviceNumId"])
-        published-time  (js/Date. (get-in clj-event ["attributes" "publishedTime"]))
+        published-time  (js/Date. (aget context "timestamp"))
         subparts        (s/split subfolder #"/")]
     (info (utils/env))
     (if (= (first subparts) "captures")
