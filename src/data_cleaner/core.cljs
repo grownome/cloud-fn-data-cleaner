@@ -24,8 +24,7 @@
 
 (defn dev-prefix
   []
-  (let [env (utils/env)]
-        (or (get env "DEV_PREFIX") "")))
+  (let [env (utils/env)] (get env "DEV_PREFIX")))
 
 (defn bq-insert
   ([dataset table data]
