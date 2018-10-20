@@ -180,7 +180,6 @@
               device-data-promise   (get-device-promise fs device-num-id)
               ;clean up the value what ever it is
               clean-value (clean-value name (js/parseFloat value))]
-              ;send the metric to inital state
           ;set the column name to the metric name
           (aset attributes (subfolder-name-to-bq-name metric-name) clean-value)
           (js-delete attributes "data")
