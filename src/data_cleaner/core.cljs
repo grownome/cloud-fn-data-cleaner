@@ -2,7 +2,6 @@
   (:require-macros [cljs.core.async :refer [go go-loop]])
   (:require [clojure.string :as s]
             ["firebase-admin" :as fa]
-            ["initial-state" :as is]
             [cljs.core.async :as a]
             ["@google-cloud/bigquery" :as bq]
             [data-cleaner.images :as i]
@@ -19,6 +18,7 @@
 
 (defonce app (.initializeApp fa #js {:credential (.applicationDefault (.-credential fa))
                                      :databaseURL "https://grownome.firebaseio.com"}))
+
 
 (defonce bq-client  (new bq #js {:projectId "grownome"}))
 
@@ -48,10 +48,11 @@
 
 (defn cleanup-temp [value]
   (let [adjust (partial offset-temp-factor 0.2 -5) ]
-    (/ (js/Math.round (* (adjust (+ (* value (/ 9 5)) 32)) 10))) 10))
+    (.toPrecision (adjust
+                    (+ (* value (/ 9 5)) 32)) 2) ))
 
 (defn cleanup-humidity  [value]
-  (js/Math.round value))
+  (.toPrecision value 2))
 
 
 (defn clean-value [name value]
@@ -88,14 +89,6 @@
                                  #(.data %)
                                  (.-docs   devices)))))))]
     device-data))
-
-(defn get-initial-state-promise
-  [device-promise]
-  (p/then device-promise
-          (fn [device]
-            (let [bucket-key (get device "bucketKey")
-                  access-key (get device "accessKey")]
-              [bucket-key access-key]))))
 
 (defn put-metric-promise
   [metric-name metric reg-id device-id timestamp]
@@ -191,18 +184,6 @@
               ;clean up the value what ever it is
               clean-value (clean-value name (js/parseFloat value))]
               ;send the metric to inital state
-          (-> (p/then
-              ;first get the keys for the initial-state bucket from fs
-               (get-initial-state-promise device-data-promise)
-              ;then
-               (fn [[bucket-key access-key]]
-                 ;push the metric to intial state
-                 (when (and bucket-key access-key)
-                   (let [b (is/bucket bucket-key access-key)]
-                     (push-inital-state b metric-name clean-value (.-timestamp event))))))
-              ;catch any errors
-              (p/catch (fn [err]
-                         (error err))))
           ;set the column name to the metric name
           (aset attributes (subfolder-name-to-bq-name metric-name) clean-value)
           (js-delete attributes "data")
