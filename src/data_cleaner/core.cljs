@@ -134,14 +134,14 @@
   debug
   "
   [event context]
-  (debug (dev-prefix))
+  (info (dev-prefix))
   (let [pubsub-message  event
         clj-event       (js->clj event)
         attributes      (aget event "attributes")
         subfolder       (get-in clj-event ["attributes" "subFolder"])
         device-num-id   (get-in clj-event ["attributes" "deviceNumId"])
         subparts        (s/split subfolder #"/")]
-    (info subparts)
+    (info (utils/env))
     (if (= (first subparts) "captures")
       ;;; Is image
       (do
