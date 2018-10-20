@@ -2,7 +2,6 @@
   (:require-macros [cljs.core.async :refer [go go-loop]])
   (:require [clojure.string :as s]
             ["firebase-admin" :as fa]
-            ["initial-state" :as is]
             [cljs.core.async :as a]
             ["@google-cloud/bigquery" :as bq]
             ["@google-cloud/storage" :as st]
