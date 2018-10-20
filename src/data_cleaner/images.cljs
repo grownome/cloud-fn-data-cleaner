@@ -27,16 +27,6 @@
     (.update digester bytes-in)
     (.digest digester)))
 
-(defn dev-prefix
-  []
-  (let [env (utils/env)]
-    (get env "DEV_PREFIX") ))
-
-(defn bucket-name
-  []
-  (let [env (utils/env)] (get env "BUCKET") ))
-
-
 
 
 (defonce storage-client (new st #js {:projectId "grownome"}))
@@ -54,14 +44,14 @@
 (defn images-by-id
   ([fs start-at]
    (-> fs
-       (.collection (str (dev-prefix) "images")) ; It's silly that we called the colletions with raw images images
+       (.collection (str utils/dev-prefix "images")) ; It's silly that we called the colletions with raw images images
        (.orderBy "imageId")
        (.startAfter start-at)
        (.limit 200)))
   ([fs]
    "gets a cursor that returns all of the unprocessed images firestore"
    (-> fs
-       (.collection (str (dev-prefix) "images")) ; It's silly that we called the colletions with raw images images
+       (.collection (str utils/dev-prefix "images")) ; It's silly that we called the colletions with raw images images
        (.orderBy "imageId")
        (.limit 200)))) ; order it by the image id so they are always groupd together
 
@@ -72,7 +62,7 @@
 (defn  stream-part
   [url]
   (let [stor   storage-client
-        bucket (.bucket stor (or (bucket-name) "grownome.appspot.com"))
+        bucket (.bucket stor (or utils/bucket-name "grownome.appspot.com"))
         file   (.file bucket url)]
      (.createReadStream file)))
 
@@ -141,7 +131,7 @@
 (defn upload-image-part
   [{:keys [device-id image-id part-id image-part] :as image-data}]
   (let [stor     (.storage fa)
-        bucket   (.bucket stor (str (bucket-name) "grownome.appspot.com"))
+        bucket   (.bucket stor (str utils/bucket-name "grownome.appspot.com"))
         url      (part-url image-data)
         file     (.file bucket url)]
     (p/then (.save file image-part)
@@ -151,7 +141,7 @@
   [{:keys [device-id image-id image-streams md5 timestamp] :as image-data}]
   (when image-data
     (let [stor     storage-client
-          bucket   (.bucket stor ( or (bucket-name) "grownome.appspot.com"))
+          bucket   (.bucket stor ( or utils/bucket-name "grownome.appspot.com"))
           file     (.file bucket (str "/images/" device-id "/" timestamp "-" image-id ".jpg"))
           ;somewhere we are dopping data so this is left commeted out
           metadata #js {"contentType" "image/jpeg"}
@@ -169,7 +159,7 @@
 (defn delete-bucket
   [url]
   (let [stor   storage-client
-        bucket (.bucket stor (or (bucket-name) "grownome.appspot.com"))
+        bucket (.bucket stor (or utils/bucket-name "grownome.appspot.com"))
         file   (.file bucket url)]
     (.delete file)))
 
@@ -195,7 +185,7 @@
               (p/promise
                (fn [resolve reject]
                  (a/go
-                   (let [path (str "gs://" (or (bucket-name)  "grownome.appspot.com") "/images/" device-id "/" timestamp "-" image-id ".jpg")
+                   (let [path (str "gs://" (or utils/bucket-name  "grownome.appspot.com") "/images/" device-id "/" timestamp "-" image-id ".jpg")
                          img-data (img/build image-id (js/parseInt device-id) path (js/Date. (*  timestamp)))
                          ]
                      (a/<! (img/insert sql/db img-data))

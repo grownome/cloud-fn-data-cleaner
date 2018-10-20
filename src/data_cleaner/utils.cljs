@@ -6,13 +6,27 @@
   (into {} (for [k (js-keys x)]
              [k (aget x k)])))
 
+(defn env
+  "Returns current env vars as a Clojure map."
+  []
+  (-js->clj+ (.-env js/process)))
+
 
 (defn one-res
   [result]
   (-> result .-rows first js->clj vals))
 
-
-(defn env
-  "Returns current env vars as a Clojure map."
+(defn -dev-prefix
   []
-  (-js->clj+ (.-env js/process)))
+  (let [e (env)]
+    (get e "DEV_PREFIX") ))
+
+(defonce dev-prefix (-dev-prefix))
+(defn -bucket-name
+  []
+  (let [e ( env)] (get e "BUCKET") ))
+
+(defonce bucket-name (-bucket-name))
+
+
+

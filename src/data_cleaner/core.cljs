@@ -22,10 +22,6 @@
 
 (defonce bq-client  (new bq #js {:projectId "grownome"}))
 
-(defn dev-prefix
-  []
-  (let [env (utils/env)] (get env "DEV_PREFIX")))
-
 (defn bq-insert
   ([dataset table data]
    (info "inserting bq row")
@@ -79,7 +75,7 @@
   [fs num-id]
   (info num-id)
   (let [device-info (-> fs
-                        (.collection (str (dev-prefix) "devices"))
+                        (.collection (str utils/dev-prefix "devices"))
                         (.where "deviceNumId" "==" num-id)
                         (.limit 1)
                         (.get))
@@ -134,7 +130,7 @@
   debug
   "
   [event context]
-  (info (dev-prefix))
+  (info utils/dev-prefix)
   (let [pubsub-message  event
         clj-event       (js->clj event)
         attributes      (aget event "attributes")
@@ -155,7 +151,7 @@
                                                (.-data event))))
               images-ref                    (-> fs (.collection
                                                     (str
-                                                     (dev-prefix)
+                                                     utils/dev-prefix
                                                      "images")))
 
               upload-data                   {:device-id  (get-in clj-event
@@ -217,7 +213,7 @@
                                       reg
                                       device-num-id
                                       (js/Date.))
-                  (when (empty? (dev-prefix))
+                  (when (empty? utils/dev-prefix)
                     (bq-insert attributes))]))))))
 
 
