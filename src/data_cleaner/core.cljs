@@ -39,9 +39,6 @@
   ([data]
    (bq-insert "grownome" "metrics" data)))
 
-(defn push-inital-state [bucket reading value timestamp]
-  (.push bucket reading value timestamp))
-
 (defn offset-temp-factor [m b temp]
   ;mx + b
   (- temp (+ (* m temp) b)))
