@@ -193,7 +193,7 @@
 (defn images-chan
   [fs cursor]
   (let [recycle-chan (a/chan 10)
-        img-chan (a/chan 20 (comp
+        img-chan (a/chan 50 (comp
                              (partition-by #(aget (.data %) "imageId"))
                              (map  #(->> %
                                          (reassemble-image recycle-chan)
