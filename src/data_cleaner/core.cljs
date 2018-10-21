@@ -162,7 +162,7 @@
                            "imageIndex"      idx
                            "deviceNumId"     device-num-id
                            "subFolder"       subfolder
-                           "timestamp"       published-time}]
+                           "timestamp"       (.getTime published-time)}]
                       (.add images-ref attributes))))))
       ;;; Is metrics
       (do
