@@ -96,7 +96,8 @@
         ; Grab the image timestamp
         timestamp       (get a-part "timestamp")
         ; then grab all the urls
-        part-urls       (mapv #(get % "imagePartUrl") clj-parts)
+        part-urls       (distinct (mapv #(get % "imagePartUrl") clj-parts))
+
         ; Downloads the parts from google cloud storage and save the name with them
         ]
     (info [expected-parts (count part-urls) (= expected-parts (count part-urls))])
