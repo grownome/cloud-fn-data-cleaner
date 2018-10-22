@@ -68,25 +68,6 @@
                  "subFolder" "metrics/core-temp-main"},
    "data" "bm9tZXMvMC9ib2xkLW1lYWRvdy1wYXlsb2FkLWNvcmUtdGVtcC1tYWluLzQ3LjA3OA=="})
 
-
-(defn get-device-promise
-  [fs num-id]
-  (info num-id)
-  (let [device-info (-> fs
-                        (.collection (str utils/dev-prefix "devices"))
-                        (.where "deviceNumId" "==" num-id)
-                        (.limit 1)
-                        (.get))
-        device-data
-        (p/then device-info
-                (fn [devices]
-                  (first (js->clj
-                          (into []
-                                (map
-                                 #(.data %)
-                                 (.-docs   devices)))))))]
-    device-data))
-
 (defn put-metric-promise
   [metric-name metric reg-id device-id timestamp]
   (p/promise
@@ -120,7 +101,6 @@
   debug
   "
   [event context]
-  (info utils/dev-prefix)
   (let [pubsub-message  event
         clj-event       (js->clj event)
         attributes      (aget event "attributes")
@@ -128,7 +108,6 @@
         device-num-id   (get-in clj-event ["attributes" "deviceNumId"])
         published-time  (js/Date. (aget context "timestamp"))
         subparts        (s/split subfolder #"/")]
-    (info (utils/env))
     (if (= (first subparts) "captures")
       ;;; Is image
       (do
@@ -140,10 +119,11 @@
                                              (b64/decodeStringToUint8Array
                                               (b64/decodeString
                                                (.-data event))))
-              images-ref                    (-> fs (.collection
-                                                    (str
-                                                     utils/dev-prefix
-                                                     "images")))
+              images-ref                     (.collection
+                                              fs
+                                              (str
+                                               utils/dev-prefix
+                                               "images"))
 
               upload-data                   {:device-id  (get-in clj-event
                                                                  ["attributes"
@@ -177,7 +157,6 @@
               ;get the device data by the numeric id
               device-num-id              (js/parseInt
                                           (get-in clj-event ["attributes" "deviceNumId"]))
-              device-data-promise   (get-device-promise fs device-num-id)
               ;clean up the value what ever it is
               clean-value (clean-value name (js/parseFloat value))]
           ;set the column name to the metric name
